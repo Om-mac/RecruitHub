@@ -19,16 +19,29 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'✗ Migration failed: {str(e)}'))
             return
         
-        # Step 2: Check if tables exist
+        # Step 2: Check if tables exist (for both PostgreSQL and SQLite)
         try:
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'auth_user'
-                    )
-                """)
-                tables_exist = cursor.fetchone()[0]
+            db_engine = connection.settings_dict['ENGINE']
+            tables_exist = False
+            
+            if 'postgresql' in db_engine:
+                # PostgreSQL check
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = 'auth_user'
+                        )
+                    """)
+                    tables_exist = cursor.fetchone()[0]
+            else:
+                # SQLite check
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT name FROM sqlite_master 
+                        WHERE type='table' AND name='auth_user'
+                    """)
+                    tables_exist = cursor.fetchone() is not None
             
             if not tables_exist:
                 self.stdout.write(self.style.WARNING('⚠ Tables still missing - retrying migrations'))
