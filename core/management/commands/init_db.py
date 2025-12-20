@@ -10,13 +10,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting database initialization...'))
         
-        # Step 1: Run migrations
+        # Step 1: Run migrations with explicit output
         try:
-            self.stdout.write('Running migrations...')
-            call_command('migrate', verbosity=1)
-            self.stdout.write(self.style.SUCCESS('✓ Migrations completed'))
+            self.stdout.write(self.style.WARNING('>>> Running migrations...'))
+            call_command('migrate', verbosity=2, interactive=False)
+            self.stdout.write(self.style.SUCCESS('✓ Migrations completed successfully'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'✗ Migration failed: {str(e)}'))
+            import traceback
+            traceback.print_exc()
             return
         
         # Step 2: Check if tables exist (for both PostgreSQL and SQLite)
