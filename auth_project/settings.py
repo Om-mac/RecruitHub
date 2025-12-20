@@ -27,7 +27,8 @@ SECRET_KEY = "ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'yourdomain.com', '*.onrender.com', 'recruithub-k435.onrender.com']
+# ALLOWED_HOSTS can be set via environment variable on Render
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-k435.onrender.com').split(',')
 
 
 # Application definition
