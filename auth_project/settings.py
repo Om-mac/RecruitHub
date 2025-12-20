@@ -25,7 +25,7 @@ SECRET_KEY = "ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'yourdomain.com']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'yourdomain.com', '*.onrender.com', 'recruithub-k435.onrender.com']
 
 
 # Application definition
