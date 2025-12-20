@@ -1,0 +1,37 @@
+{% extends 'core/base.html' %}
+
+{% block title %}404 - Page Not Found{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 text-center">
+            <div class="error-page">
+                <h1 class="display-1 fw-bold text-danger">404</h1>
+                <h2 class="mb-3">Page Not Found</h2>
+                <p class="text-muted mb-4">The page you're looking for doesn't exist or has been moved.</p>
+                
+                <div class="alert alert-info">
+                    <p><strong>Requested URL:</strong> {{ request.path }}</p>
+                </div>
+                
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{% url 'home' %}" class="btn btn-primary btn-lg px-4">Go to Home</a>
+                    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-lg px-4">Go Back</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-page {
+        padding: 60px 20px;
+    }
+    .error-page h1 {
+        font-size: 120px;
+        line-height: 1;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}

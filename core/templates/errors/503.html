@@ -1,0 +1,38 @@
+{% extends 'core/base.html' %}
+
+{% block title %}503 - Service Unavailable{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 text-center">
+            <div class="error-page">
+                <h1 class="display-1 fw-bold text-danger">503</h1>
+                <h2 class="mb-3">Service Unavailable</h2>
+                <p class="text-muted mb-4">The service is temporarily under maintenance.</p>
+                
+                <div class="alert alert-warning">
+                    <p><strong>Maintenance Mode:</strong> We're performing scheduled maintenance.</p>
+                    <p class="mb-0"><small>Expected to be back online shortly.</small></p>
+                </div>
+                
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{% url 'home' %}" class="btn btn-primary btn-lg px-4">Go to Home</a>
+                    <button onclick="location.reload()" class="btn btn-outline-secondary btn-lg px-4">Retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-page {
+        padding: 60px 20px;
+    }
+    .error-page h1 {
+        font-size: 120px;
+        line-height: 1;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}

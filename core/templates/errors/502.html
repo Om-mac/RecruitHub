@@ -1,0 +1,38 @@
+{% extends 'core/base.html' %}
+
+{% block title %}502 - Bad Gateway{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 text-center">
+            <div class="error-page">
+                <h1 class="display-1 fw-bold text-danger">502</h1>
+                <h2 class="mb-3">Bad Gateway</h2>
+                <p class="text-muted mb-4">The server is temporarily unavailable. Please try again later.</p>
+                
+                <div class="alert alert-danger">
+                    <p><strong>Service Issue:</strong> Our servers are experiencing difficulties.</p>
+                    <p class="mb-0"><small>We're working to restore service. Check back soon.</small></p>
+                </div>
+                
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{% url 'home' %}" class="btn btn-primary btn-lg px-4">Go to Home</a>
+                    <button onclick="location.reload()" class="btn btn-outline-secondary btn-lg px-4">Retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-page {
+        padding: 60px 20px;
+    }
+    .error-page h1 {
+        font-size: 120px;
+        line-height: 1;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
