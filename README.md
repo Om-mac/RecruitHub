@@ -433,36 +433,43 @@ Contributions are welcome! Please follow these steps:
 5. Open a Pull Request
 
 ---
-
-## 📝 License
+📝 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
----
+⸻
 
-## 👨‍💻 Author
+👨‍💻 Author
 
+Om Tapdiya
+B.Tech CSE (Data Science), VIT Pune
 Created for college recruitment management and HR automation.
 
-## 📞 Support
+⸻
+
+📞 Support
 
 For issues, questions, or suggestions:
-- Open an issue on GitHub
-- Contact: [your-email@example.com]
+	•	Open an issue on GitHub
+	•	Contact: omtapdiya75@gmail.com
 
----
+⸻
 
-## 🎓 About RecruitHub
+🎓 About RecruitHub
 
 RecruitHub is a modern recruitment management system designed specifically for educational institutions. It bridges the gap between students and recruiters by providing:
+	•	📊 Real-time Analytics – Track student profiles and recruitment metrics
+	•	🔍 Advanced Filtering – Find perfect candidates based on multiple criteria
+	•	💼 Professional Profiles – Complete student information in one place
+	•	🔗 Social Integration – Direct links to candidate’s GitHub, LinkedIn, and other profiles
+	•	📱 Responsive Design – Works seamlessly on desktop and mobile devices
 
-- 📊 **Real-time Analytics** - Track student profiles and recruitment metrics
-- 🔍 **Advanced Filtering** - Find perfect candidates based on multiple criteria
-- 💼 **Professional Profiles** - Complete student information in one place
-- 🔗 **Social Integration** - Direct links to candidate's GitHub, LinkedIn, and other profiles
-- 📱 **Responsive Design** - Works seamlessly on desktop and mobile devices
+⸻
 
----
+🔗 Developer Links
+	•	GitHub: https://github.com/Om-mac
+	•	LinkedIn: https://www.linkedin.com/in/omtapdiya
 
-**Star ⭐ this repository if you found it helpful!**
+⸻
 
+Star ⭐ this repository if you found it helpful!
