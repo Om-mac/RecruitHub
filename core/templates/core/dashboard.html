@@ -1,0 +1,365 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+    <div class="mb-4">
+        <h1 class="mb-0">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </h1>
+        <p class="text-muted">Welcome back, {{ user.get_full_name|default:user.username }}!</p>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div style="font-size: 2.5rem; color: #667eea; margin-bottom: 10px;">
+                        <i class="fas fa-file-upload"></i>
+                    </div>
+                    <h3 class="card-title">{{ documents.count }}</h3>
+                    <p class="card-text text-muted mb-0">Documents</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div style="font-size: 2.5rem; color: #764ba2; margin-bottom: 10px;">
+                        <i class="fas fa-sticky-note"></i>
+                    </div>
+                    <h3 class="card-title">{{ notes.count }}</h3>
+                    <p class="card-text text-muted mb-0">Notes</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div style="font-size: 2.5rem; color: #28a745; margin-bottom: 10px;">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h3 class="card-title">{{ profile.degree|default:"—" }}</h3>
+                    <p class="card-text text-muted mb-0">Degree</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body">
+                    <div style="font-size: 2.5rem; color: #dc3545; margin-bottom: 10px;">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <h3 class="card-title">{{ profile.cgpa|default:"—" }}</h3>
+                    <p class="card-text text-muted mb-0">CGPA</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Profile Summary & Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow">
+                <div class="card-body text-center">
+                    {% if profile.profile_photo %}
+                        <img src="{{ profile.profile_photo.url }}" alt="Profile" class="rounded-circle mb-3" style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #667eea;">
+                    {% else %}
+                        <div class="rounded-circle mb-3 d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0 auto;">
+                            <i class="fas fa-user fa-3x text-white"></i>
+                        </div>
+                    {% endif %}
+                    <h5>{{ user.get_full_name|default:user.username }}</h5>
+                    <p class="text-muted small">{{ user.email }}</p>
+                    {% if profile.phone %}
+                    <p class="text-muted small">
+                        <i class="fas fa-phone"></i> {{ profile.phone }}
+                    </p>
+                    {% endif %}
+                    <a href="{% url 'profile' %}" class="btn btn-sm btn-primary w-100">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <!-- Documents Section -->
+            <div class="card border-0 shadow mb-4">
+                <div class="card-header bg-primary text-white border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-upload"></i> My Documents
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if documents %}
+                        <div class="list-group list-group-flush">
+                            {% for doc in documents %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-file"></i> {{ doc.title }}
+                                        </h6>
+                                        <small class="text-muted">{{ doc.uploaded_at|date:"d M Y, H:i" }}</small>
+                                    </div>
+                                    <a href="{{ doc.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center mb-0">No documents uploaded yet.</p>
+                    {% endif %}
+                    <a href="{% url 'upload_document' %}" class="btn btn-primary mt-3 w-100">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload Document
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Notes Section -->
+            <div class="card border-0 shadow">
+                <div class="card-header bg-success text-white border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sticky-note"></i> My Notes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if notes %}
+                        <div class="row">
+                            {% for note in notes %}
+                                <div class="col-md-6 mb-3">
+                                    <a href="{% url 'view_note' note.id %}" class="text-decoration-none">
+                                        <div class="card bg-light border-0 h-100 shadow-sm hover-shadow" style="transition: all 0.3s ease; cursor: pointer;">
+                                            <div class="card-body">
+                                                <h6 class="card-title">
+                                                    <i class="fas fa-file-alt"></i> {{ note.title }}
+                                                </h6>
+                                                <p class="card-text small text-dark">{{ note.content|truncatewords:15 }}</p>
+                                                <small class="text-muted">{{ note.created_at|date:"d M Y, H:i" }}</small>
+                                            </div>
+                                            <div class="card-footer bg-transparent border-top-0 p-2 text-right">
+                                                <small class="text-primary">View <i class="fas fa-arrow-right"></i></small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center mb-0">No notes added yet.</p>
+                    {% endif %}
+                    <a href="{% url 'add_note' %}" class="btn btn-success mt-3 w-100">
+                        <i class="fas fa-plus"></i> Add Note
+                    </a>
+                </div>
+            </div>
+            
+            <style>
+                .hover-shadow:hover {
+                    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+                    transform: translateY(-2px);
+                }
+            </style>
+        </div>
+    </div>
+    
+    <!-- Profile Information Section -->
+    {% if profile.college_name or profile.skills or profile.address %}
+    <div class="card border-0 shadow">
+        <div class="card-header bg-info text-white border-0">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle"></i> Profile Information
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% if user.first_name or profile.middle_name or user.last_name %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-user"></i> Full Name:</strong><br>
+                        {{ user.first_name }}{% if profile.middle_name %} {{ profile.middle_name }}{% endif %} {{ user.last_name }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.date_of_birth %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-birthday-cake"></i> Date of Birth:</strong><br>
+                        {{ profile.date_of_birth|date:"d M Y" }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.gender %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-venus-mars"></i> Gender:</strong><br>
+                        {{ profile.get_gender_display }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.college_name %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-school"></i> College:</strong><br>
+                        {{ profile.college_name }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.degree %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-graduation-cap"></i> Degree:</strong><br>
+                        {{ profile.degree }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.specialization %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-book-open"></i> Specialization:</strong><br>
+                        {{ profile.specialization }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.cgpa %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-star"></i> CGPA:</strong><br>
+                        {{ profile.cgpa }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.phone %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-phone"></i> Phone:</strong><br>
+                        {{ profile.phone }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.address %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-map-marker-alt"></i> Address:</strong><br>
+                        {{ profile.address }}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.city or profile.state or profile.pincode %}
+                <div class="col-md-6 mb-3">
+                    <p>
+                        <strong><i class="fas fa-map"></i> Location:</strong><br>
+                        {{ profile.city }}{% if profile.city and profile.state %}, {% endif %}{{ profile.state }}{% if profile.pincode %} - {{ profile.pincode }}{% endif %}
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.skills %}
+                <div class="col-12 mb-3">
+                    <p>
+                        <strong><i class="fas fa-code"></i> Skills:</strong><br>
+                        <div class="mt-2">
+                            {% for skill in profile.skills_list %}
+                                <span class="badge bg-primary me-1 mb-1">{{ skill }}</span>
+                            {% endfor %}
+                        </div>
+                    </p>
+                </div>
+                {% endif %}
+                
+                {% if profile.year_of_study or profile.admission_year or profile.backlogs or profile.current_backlogs %}
+                <div class="col-12 mb-3 border-top pt-3">
+                    <h6 class="mb-2"><i class="fas fa-graduation-cap"></i> <strong>Student Information</strong></h6>
+                    <div class="row">
+                        {% if profile.year_of_study %}
+                        <div class="col-md-3">
+                            <p class="mb-2"><strong>Year:</strong> {{ profile.get_year_of_study_display }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.admission_year %}
+                        <div class="col-md-3">
+                            <p class="mb-2"><strong>Admission:</strong> {{ profile.admission_year }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.backlogs %}
+                        <div class="col-md-3">
+                            <p class="mb-2"><strong>Total Backlogs:</strong> <span class="badge bg-danger">{{ profile.backlogs }}</span></p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.current_backlogs %}
+                        <div class="col-md-3">
+                            <p class="mb-2"><strong>Current:</strong> <span class="badge bg-warning">{{ profile.current_backlogs }}</span></p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if profile.github_username or profile.linkedin_username or profile.hackerrank_username %}
+                <div class="col-12 mb-3 border-top pt-3">
+                    <h6 class="mb-2"><i class="fas fa-globe"></i> <strong>Online Profiles</strong></h6>
+                    <div class="row">
+                        {% if profile.github_username %}
+                        <div class="col-md-4">
+                            <p class="mb-2">
+                                <a href="https://github.com/{{ profile.github_username }}" target="_blank" class="text-decoration-none">
+                                    <i class="fab fa-github"></i> GitHub
+                                </a>
+                            </p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.linkedin_username %}
+                        <div class="col-md-4">
+                            <p class="mb-2">
+                                <a href="https://linkedin.com/in/{{ profile.linkedin_username }}" target="_blank" class="text-decoration-none">
+                                    <i class="fab fa-linkedin"></i> LinkedIn
+                                </a>
+                            </p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if profile.hackerrank_username %}
+                        <div class="col-md-4">
+                            <p class="mb-2">
+                                <a href="https://hackerrank.com/{{ profile.hackerrank_username }}" target="_blank" class="text-decoration-none">
+                                    <i class="fas fa-code"></i> HackerRank
+                                </a>
+                            </p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if profile.bio %}
+                <div class="col-12">
+                    <p>
+                        <strong><i class="fas fa-book"></i> Bio:</strong><br>
+                        {{ profile.bio }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+

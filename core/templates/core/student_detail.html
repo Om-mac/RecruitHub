@@ -1,0 +1,254 @@
+{% extends "core/base.html" %}
+
+{% block title %}Student Profile - HR Portal{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{% url 'hr_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Profile Card -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    {% if student.profile_photo %}
+                        <img src="{{ student.profile_photo.url }}" alt="Profile Photo" class="profile-photo mb-3">
+                    {% else %}
+                        <div class="profile-photo mb-3" style="background: #667eea; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-user fa-4x text-white"></i>
+                        </div>
+                    {% endif %}
+
+                    <h3>{{ student.user.first_name }} {{ student.user.last_name }}</h3>
+                    <p class="text-muted mb-1">{{ student.user.username }}</p>
+                    <p class="text-muted mb-3">{{ student.user.email }}</p>
+
+                    <!-- Contact Info -->
+                    <hr>
+                    <h6 class="mb-3">Contact Information</h6>
+                    <p class="mb-1">
+                        <strong>Phone:</strong> {{ student.phone|default:"N/A" }}
+                    </p>
+                    <p class="mb-1">
+                        <strong>Email:</strong> {{ student.user.email }}
+                    </p>
+                    <p class="mb-1">
+                        <strong>City:</strong> {{ student.city|default:"N/A" }}
+                    </p>
+                    <p class="mb-1">
+                        <strong>State:</strong> {{ student.state|default:"N/A" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Card -->
+        <div class="col-md-8">
+            <!-- Academic Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-graduation-cap"></i> Academic Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>College:</strong>
+                            <p>{{ student.college_name|default:"N/A" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Branch:</strong>
+                            <p><span class="badge bg-info">{{ student.branch|default:"N/A" }}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>Degree:</strong>
+                            <p>{{ student.degree|default:"N/A" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Specialization:</strong>
+                            <p>{{ student.specialization|default:"N/A" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>Admission Year:</strong>
+                            <p>{{ student.admission_year|default:"N/A" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Year of Study:</strong>
+                            <p>{{ student.year_of_study|default:"N/A" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>CGPA:</strong>
+                            <p>
+                                {% if student.cgpa %}
+                                    {% if student.cgpa >= 8 %}
+                                        <span class="text-success fs-5"><strong>{{ student.cgpa }}</strong></span>
+                                    {% elif student.cgpa >= 7 %}
+                                        <span class="text-info fs-5"><strong>{{ student.cgpa }}</strong></span>
+                                    {% else %}
+                                        <span class="text-warning fs-5"><strong>{{ student.cgpa }}</strong></span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Current Backlogs:</strong>
+                            <p>
+                                {% if student.current_backlogs == 0 %}
+                                    <span class="badge bg-success fs-6">0 (Clear)</span>
+                                {% elif student.current_backlogs <= 2 %}
+                                    <span class="badge bg-warning fs-6">{{ student.current_backlogs }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger fs-6">{{ student.current_backlogs }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Total Backlogs (Ever):</strong>
+                            <p>{{ student.backlogs|default:"N/A" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Professional Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-briefcase"></i> Professional Information</h5>
+                </div>
+                <div class="card-body">
+                    {% if student.skills_list %}
+                        <div class="mb-3">
+                            <strong>Skills:</strong>
+                            <p>
+                                {% for skill in student.skills_list %}
+                                    <span class="badge bg-secondary">{{ skill }}</span>
+                                {% endfor %}
+                            </p>
+                        </div>
+                    {% endif %}
+
+                    {% if student.experience %}
+                        <div class="mb-3">
+                            <strong>Experience:</strong>
+                            <p>{{ student.experience }}</p>
+                        </div>
+                    {% endif %}
+
+                    {% if student.bio %}
+                        <div class="mb-3">
+                            <strong>Bio:</strong>
+                            <p>{{ student.bio }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Social Links & Platforms -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-link"></i> Social & Platform Links</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>GitHub:</strong>
+                            {% if student.github_username %}
+                                <a href="https://www.github.com/{{ student.github_username }}" target="_blank" class="btn btn-sm btn-dark">
+                                    <i class="fab fa-github"></i> {{ student.github_username }}
+                                </a>
+                            {% else %}
+                                <p class="text-muted">Not provided</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <strong>LinkedIn:</strong>
+                            {% if student.linkedin_username %}
+                                <a href="https://www.linkedin.com/in/{{ student.linkedin_username }}" target="_blank" class="btn btn-sm btn-primary">
+                                    <i class="fab fa-linkedin"></i> {{ student.linkedin_username }}
+                                </a>
+                            {% else %}
+                                <p class="text-muted">Not provided</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>HackerRank:</strong>
+                            {% if student.hackerrank_username %}
+                                <a href="https://www.hackerrank.com/{{ student.hackerrank_username }}" target="_blank" class="btn btn-sm btn-success">
+                                    <i class="fab fa-hackerrank"></i> {{ student.hackerrank_username }}
+                                </a>
+                            {% else %}
+                                <p class="text-muted">Not provided</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <strong>Other Platforms:</strong>
+                            {% if student.other_platforms %}
+                                <p style="word-break: break-word;">{{ student.other_platforms }}</p>
+                            {% else %}
+                                <p class="text-muted">Not provided</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if student.certifications_links %}
+                        <div class="mt-3">
+                            <strong>Certifications:</strong>
+                            <p style="word-break: break-word;">{{ student.certifications_links }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Documents & Files -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-file"></i> Documents</h5>
+                </div>
+                <div class="card-body">
+                    {% if student.resume %}
+                        <div class="mb-3">
+                            <strong>Resume:</strong>
+                            <a href="{{ student.resume.url }}" class="btn btn-sm btn-primary" download>
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No resume uploaded</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Add tooltip for last updated
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+{% endblock %}
