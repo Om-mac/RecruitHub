@@ -1,6 +1,5 @@
 from django.apps import AppConfig
 import os
-from django.contrib.auth.models import User
 
 
 class CoreConfig(AppConfig):
@@ -9,6 +8,8 @@ class CoreConfig(AppConfig):
     def ready(self):
         """Create superuser on app startup if not exists"""
         try:
+            from django.contrib.auth.models import User
+            
             username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
             email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@vakverse.com')
             password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
