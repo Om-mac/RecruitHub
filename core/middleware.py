@@ -28,11 +28,13 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Security headers
-        response['X-Content-Type-Options'] = 'nosniff'
-        response['X-Frame-Options'] = 'DENY'
-        response['X-XSS-Protection'] = '1; mode=block'
-        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        # Only set security headers if response supports item assignment
+        if hasattr(response, '__setitem__'):
+            # Security headers
+            response['X-Content-Type-Options'] = 'nosniff'
+            response['X-Frame-Options'] = 'DENY'
+            response['X-XSS-Protection'] = '1; mode=block'
+            response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
         return response
 
