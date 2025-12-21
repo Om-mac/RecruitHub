@@ -169,6 +169,37 @@ class DocumentForm(forms.ModelForm):
             'file': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
+class OTPForm(forms.Form):
+    """Form for OTP verification"""
+    otp = forms.CharField(
+        label='Enter OTP',
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg text-center',
+            'placeholder': '000000',
+            'maxlength': '6',
+            'pattern': '[0-9]{6}',
+            'autocomplete': 'off',
+            'inputmode': 'numeric'
+        })
+    )
+    
+    def clean_otp(self):
+        otp = self.cleaned_data.get('otp')
+        if not otp.isdigit() or len(otp) != 6:
+            raise forms.ValidationError('OTP must be 6 digits')
+        return otp
+
+class EmailOTPForm(forms.Form):
+    """Form for requesting OTP via email"""
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email'
+        })
+    )
+
 class NoteForm(forms.ModelForm):
     class Meta:
         model = Note

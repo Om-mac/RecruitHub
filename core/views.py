@@ -8,8 +8,11 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
-from .models import Document, Note, UserProfile, HRProfile
-from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm
+from django.utils import timezone
+import random
+import string
+from .models import Document, Note, UserProfile, HRProfile, EmailOTP
+from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm, OTPForm, EmailOTPForm
 
 User = get_user_model()
 
@@ -416,3 +419,163 @@ def change_password(request):
 def password_change_done(request):
     """Show confirmation message after password change"""
     return render(request, 'core/password_change_done.html')
+
+
+def generate_otp():
+    """Generate a random 6-digit OTP"""
+    return ''.join(random.choices(string.digits, k=6))
+
+
+def send_otp_email(email, otp):
+    """Send OTP via email"""
+    subject = 'Email Verification OTP - RecruitHub'
+    message = f'''
+Hello,
+
+Your email verification OTP is: {otp}
+
+This OTP is valid for 10 minutes.
+
+If you didn't request this OTP, please ignore this email.
+
+Best regards,
+RecruitHub Team
+    '''
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )
+
+
+def register_step1_email(request):
+    """Step 1: Enter email and send OTP"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = EmailOTPForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            
+            # Check if email already registered
+            if User.objects.filter(email=email).exists():
+                messages.error(request, 'This email is already registered.')
+                return redirect('register_step1_email')
+            
+            # Generate and save OTP
+            try:
+                otp_obj = EmailOTP.objects.filter(email=email).first()
+                if otp_obj:
+                    # Delete old OTP record
+                    otp_obj.delete()
+                
+                otp = generate_otp()
+                EmailOTP.objects.create(email=email, otp=otp)
+                
+                # Send OTP via email
+                send_otp_email(email, otp)
+                
+                # Store email in session for next step
+                request.session['registration_email'] = email
+                
+                messages.success(request, f'OTP sent to {email}. Please check your inbox.')
+                return redirect('register_step2_verify_otp')
+            except Exception as e:
+                messages.error(request, f'Failed to send OTP: {str(e)}')
+                return redirect('register_step1_email')
+    else:
+        form = EmailOTPForm()
+    
+    return render(request, 'core/register_step1_email.html', {'form': form})
+
+
+def register_step2_verify_otp(request):
+    """Step 2: Verify OTP"""
+    email = request.session.get('registration_email')
+    
+    if not email:
+        messages.error(request, 'Please start registration process again.')
+        return redirect('register_step1_email')
+    
+    if request.method == 'POST':
+        form = OTPForm(request.POST)
+        if form.is_valid():
+            otp = form.cleaned_data['otp']
+            
+            try:
+                otp_obj = EmailOTP.objects.get(email=email)
+                
+                # Check if OTP is expired
+                if otp_obj.is_expired():
+                    otp_obj.delete()
+                    messages.error(request, 'OTP has expired. Please request a new one.')
+                    return redirect('register_step1_email')
+                
+                # Check if too many failed attempts
+                if not otp_obj.is_valid_attempt():
+                    otp_obj.delete()
+                    messages.error(request, 'Too many failed attempts. Please request a new OTP.')
+                    return redirect('register_step1_email')
+                
+                # Check if OTP matches
+                if otp_obj.otp == otp:
+                    # Mark as verified and proceed to registration
+                    otp_obj.is_verified = True
+                    otp_obj.save()
+                    request.session['otp_verified'] = True
+                    return redirect('register_step3_create_account')
+                else:
+                    # Increment failed attempts
+                    otp_obj.attempts += 1
+                    otp_obj.save()
+                    remaining = 5 - otp_obj.attempts
+                    messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                    
+            except EmailOTP.DoesNotExist:
+                messages.error(request, 'OTP not found. Please request a new one.')
+                return redirect('register_step1_email')
+    else:
+        form = OTPForm()
+    
+    return render(request, 'core/register_step2_verify_otp.html', {'form': form, 'email': email})
+
+
+def register_step3_create_account(request):
+    """Step 3: Create account (original register view)"""
+    email = request.session.get('registration_email')
+    otp_verified = request.session.get('otp_verified')
+    
+    if not email or not otp_verified:
+        messages.error(request, 'Please complete email verification first.')
+        return redirect('register_step1_email')
+    
+    if request.method == 'POST':
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            # Make sure email matches verified email
+            if form.cleaned_data.get('email') != email:
+                messages.error(request, 'Email must match the verified email.')
+                return form
+            
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
+            
+            # Clean up session and OTP
+            EmailOTP.objects.filter(email=email).delete()
+            del request.session['registration_email']
+            del request.session['otp_verified']
+            
+            messages.success(request, 'Registration successful! Please log in.')
+            return redirect('login')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = UserRegistrationForm(initial={'email': email})
+    
+    return render(request, 'core/register_step3_create_account.html', {'form': form, 'email': email})

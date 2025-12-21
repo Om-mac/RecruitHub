@@ -1,0 +1,71 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Registration - Step 1: Email Verification{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <div class="badge badge-primary mb-3" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); padding: 10px 20px; font-size: 1.1rem;">
+                            Step 1 of 3
+                        </div>
+                        <h2 class="mb-2">
+                            <i class="fas fa-envelope"></i> Verify Your Email
+                        </h2>
+                        <p class="text-muted">We'll send you an OTP to verify your email address</p>
+                    </div>
+                    
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="id_email" class="form-label">Email Address</label>
+                            <input type="email" name="email" id="id_email" class="form-control form-control-lg {% if form.email.errors %}is-invalid{% endif %}" placeholder="Enter your email" required autofocus>
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.email.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-info-circle"></i>
+                                We'll send a 6-digit OTP to this email
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                            <i class="fas fa-arrow-right"></i> Send OTP
+                        </button>
+                    </form>
+                    
+                    <hr>
+                    <p class="text-center mb-0">
+                        Already have an account? 
+                        <a href="{% url 'login' %}" class="fw-bold text-decoration-none">
+                            Login here
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

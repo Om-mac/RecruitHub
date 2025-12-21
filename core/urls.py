@@ -4,7 +4,13 @@ from . import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
-    path('register/', views.register, name='register'),
+    
+    # Registration with OTP
+    path('register_step1/', views.register_step1_email, name='register_step1_email'),
+    path('register_step2/', views.register_step2_verify_otp, name='register_step2_verify_otp'),
+    path('register_step3/', views.register_step3_create_account, name='register_step3_create_account'),
+    path('register/', views.register, name='register'),  # Keep old register for backward compatibility
+    
     path('profile/', views.profile, name='profile'),
     path('upload/', views.upload_document, name='upload_document'),
     path('add_note/', views.add_note, name='add_note'),

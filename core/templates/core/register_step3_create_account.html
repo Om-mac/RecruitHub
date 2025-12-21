@@ -1,0 +1,115 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Registration - Step 3: Create Account{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <div class="badge badge-success mb-3" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); padding: 10px 20px; font-size: 1.1rem;">
+                            Step 3 of 3
+                        </div>
+                        <h2 class="mb-2">
+                            <i class="fas fa-user-plus"></i> Create Your Account
+                        </h2>
+                        <p class="text-muted">Email verified! Now create your account</p>
+                    </div>
+                    
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <h4 class="alert-heading">Error</h4>
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">Email Address</label>
+                            <input type="email" id="id_email" class="form-control" value="{{ email }}" disabled>
+                            <small class="text-muted">✓ Email verified</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">Username</label>
+                            <input type="text" name="username" id="id_username" class="form-control {% if form.username.errors %}is-invalid{% endif %}" placeholder="Choose a username" required autofocus>
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.username.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_first_name" class="form-label">First Name</label>
+                            <input type="text" name="first_name" id="id_first_name" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" placeholder="Your first name">
+                            {% if form.first_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.first_name.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_last_name" class="form-label">Last Name</label>
+                            <input type="text" name="last_name" id="id_last_name" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" placeholder="Your last name">
+                            {% if form.last_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.last_name.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">Password</label>
+                            <input type="password" name="password" id="id_password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" placeholder="Create a strong password" required>
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.password.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted">Min 8 characters, mix of letters and numbers</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="id_password_confirm" class="form-label">Confirm Password</label>
+                            <input type="password" name="password_confirm" id="id_password_confirm" class="form-control {% if form.password_confirm.errors %}is-invalid{% endif %}" placeholder="Confirm your password" required>
+                            {% if form.password_confirm.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.password_confirm.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                            <i class="fas fa-check-circle"></i> Complete Registration
+                        </button>
+                    </form>
+                    
+                    <hr>
+                    <p class="text-center mb-0">
+                        Already have an account? 
+                        <a href="{% url 'login' %}" class="fw-bold text-decoration-none">
+                            Login here
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

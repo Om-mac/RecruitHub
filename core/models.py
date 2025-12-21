@@ -89,3 +89,25 @@ class HRProfile(models.Model):
     def __str__(self):
         return f"HR Profile of {self.user.username}"
 
+
+class EmailOTP(models.Model):
+    """Model to store OTP for email verification during registration"""
+    email = models.EmailField(unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+    attempts = models.IntegerField(default=0)
+    
+    def __str__(self):
+        return f"OTP for {self.email}"
+    
+    def is_expired(self):
+        """Check if OTP expired (valid for 10 minutes)"""
+        from django.utils import timezone
+        from datetime import timedelta
+        return timezone.now() - self.created_at > timedelta(minutes=10)
+    
+    def is_valid_attempt(self):
+        """Check if user has too many failed attempts"""
+        return self.attempts < 5
+
