@@ -31,13 +31,13 @@ except ImportError:
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3"
+SECRET_KEY = os.environ.get('SECRET_KEY', 'ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # ALLOWED_HOSTS can be set via environment variable on Render
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-k435.onrender.com').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-k435.onrender.com,vakverse.com,*.vakverse.com').split(',')
 
 
 # Application definition
@@ -97,6 +97,12 @@ DATABASES = {
     )
 }
 
+# Database SSL for secure production connections
+if not DEBUG and 'postgresql' in DATABASES['default'].get('ENGINE', ''):
+    DATABASES['default']['OPTIONS'] = {
+        'sslmode': 'require',
+    }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -146,10 +152,20 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://vakverse.com,https://*.vakverse.com').split(',')
 SECURE_BROWSER_XSS_FILTER = True
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
+X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_SECURITY_POLICY = {
     "default-src": ("'self'",),
+    "script-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
+    "style-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
+    "img-src": ("'self'", "data:"),
 }
+COOKIE_HTTPONLY = True
+COOKIE_SAMESITE = 'Strict'
 
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'home'
@@ -165,7 +181,7 @@ else:
     # Development: Use console backend (see OTP in logs)
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@recruithub.com')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@vakverse.com')
 
 # Error handling
 TEMPLATES[0]['OPTIONS']['context_processors'].append('django.template.context_processors.request')
