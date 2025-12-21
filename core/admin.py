@@ -64,6 +64,8 @@ class UserProfileAdmin(admin.ModelAdmin):
             user.delete()
         else:
             super().delete_model(request, obj)
+    
+    def college_badge(self, obj):
         return format_html(
             '<span style="background: #764ba2; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px;">🏫 {}</span>',
             obj.college_name if obj.college_name else 'N/A'
