@@ -346,13 +346,20 @@ If you did not request this, please ignore this email.
 Best regards,
 RecruitHub Team
 '''
-                send_mail(
-                    subject,
-                    message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [email],
-                    fail_silently=False,
-                )
+                try:
+                    send_mail(
+                        subject,
+                        message,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [email],
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    # Log error but show success message to user
+                    import logging
+                    logger = logging.getLogger('core')
+                    logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+                
                 messages.success(request, 'Password reset link has been sent to your email.')
                 return redirect('password_reset_done')
             except User.DoesNotExist:
@@ -441,13 +448,20 @@ If you didn't request this OTP, please ignore this email.
 Best regards,
 RecruitHub Team
     '''
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [email],
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        # Log error but don't fail the registration
+        import logging
+        logger = logging.getLogger('core')
+        logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+        pass
 
 
 def register_step1_email(request):
