@@ -174,11 +174,18 @@ LOGIN_URL = 'login'
 # Email configuration - Resend API
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 
-if RESEND_API_KEY:
+# Check if API key is a real key (not placeholder)
+is_valid_api_key = (
+    RESEND_API_KEY 
+    and not RESEND_API_KEY.startswith('[')
+    and 'ADD_YOUR' not in RESEND_API_KEY
+)
+
+if is_valid_api_key:
     # Production: Use Resend API
     EMAIL_BACKEND = 'core.email_backends.ResendBackend'
 else:
-    # Development: Use console backend (see OTP in logs)
+    # Development: Use console backend (see OTP/emails in logs)
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@vakverse.com')
