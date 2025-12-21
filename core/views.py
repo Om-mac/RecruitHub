@@ -342,7 +342,6 @@ def password_reset_request(request):
                             settings.DEFAULT_FROM_EMAIL,
                             [email],
                             fail_silently=True,
-                            timeout=5,
                         )
                     except Exception as e:
                         logger.error(f"Failed to send password reset email to {email}: {str(e)}")
@@ -446,7 +445,6 @@ RecruitHub Team
                 settings.DEFAULT_FROM_EMAIL,
                 [email],
                 fail_silently=True,
-                timeout=5,  # 5 second timeout
             )
         except Exception as e:
             # Log error but don't fail
