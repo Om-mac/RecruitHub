@@ -352,7 +352,7 @@ RecruitHub Team
                         message,
                         settings.DEFAULT_FROM_EMAIL,
                         [email],
-                        fail_silently=False,
+                        fail_silently=True,
                     )
                 except Exception as e:
                     # Log error but show success message to user
@@ -454,7 +454,7 @@ RecruitHub Team
             message,
             settings.DEFAULT_FROM_EMAIL,
             [email],
-            fail_silently=False,
+            fail_silently=True,
         )
     except Exception as e:
         # Log error but don't fail the registration
