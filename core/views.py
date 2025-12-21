@@ -446,6 +446,21 @@ def password_reset_request(request):
                 # Send email in background thread
                 def _send_reset_email():
                     try:
+                        subject = 'Password Reset Request - RecruitHub'
+                        message = f'''
+Hello {user.first_name or user.username},
+
+We received a request to reset your password. Click the link below to reset it:
+
+{reset_link}
+
+This link is valid for 24 hours.
+
+If you didn't request a password reset, please ignore this email.
+
+Best regards,
+RecruitHub Team
+                        '''
                         send_mail(
                             subject,
                             message,
@@ -453,6 +468,7 @@ def password_reset_request(request):
                             [email],
                             fail_silently=True,
                         )
+                        logger.info(f"Password reset email sent to {email}")
                     except Exception as e:
                         logger.error(f"Failed to send password reset email to {email}: {str(e)}")
                 
