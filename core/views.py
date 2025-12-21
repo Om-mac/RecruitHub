@@ -11,10 +11,13 @@ from django.conf import settings
 from django.utils import timezone
 import random
 import string
+import threading
+import logging
 from .models import Document, Note, UserProfile, HRProfile, EmailOTP
 from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm, OTPForm, EmailOTPForm
 
 User = get_user_model()
+logger = logging.getLogger('core')
 
 def home(request):
     """Home page - redirect to dashboard if logged in, else to login"""
@@ -330,35 +333,22 @@ def password_reset_request(request):
                 # Create reset link
                 reset_link = request.build_absolute_uri(f'/password_reset_confirm/{uid}/{token}/')
                 
-                # Send email
-                subject = 'Password Reset Request'
-                message = f'''
-Hello {user.username},
-
-We received a request to reset your password. Click the link below to reset your password:
-
-{reset_link}
-
-This link will expire in 24 hours.
-
-If you did not request this, please ignore this email.
-
-Best regards,
-RecruitHub Team
-'''
-                try:
-                    send_mail(
-                        subject,
-                        message,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [email],
-                        fail_silently=True,
-                    )
-                except Exception as e:
-                    # Log error but show success message to user
-                    import logging
-                    logger = logging.getLogger('core')
-                    logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+                # Send email in background thread
+                def _send_reset_email():
+                    try:
+                        send_mail(
+                            subject,
+                            message,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [email],
+                            fail_silently=True,
+                            timeout=5,
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+                
+                thread = threading.Thread(target=_send_reset_email, daemon=True)
+                thread.start()
                 
                 messages.success(request, 'Password reset link has been sent to your email.')
                 return redirect('password_reset_done')
@@ -434,9 +424,11 @@ def generate_otp():
 
 
 def send_otp_email(email, otp):
-    """Send OTP via email"""
-    subject = 'Email Verification OTP - RecruitHub'
-    message = f'''
+    """Send OTP via email in background thread"""
+    def _send_email():
+        try:
+            subject = 'Email Verification OTP - RecruitHub'
+            message = f'''
 Hello,
 
 Your email verification OTP is: {otp}
@@ -447,21 +439,22 @@ If you didn't request this OTP, please ignore this email.
 
 Best regards,
 RecruitHub Team
-    '''
-    try:
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [email],
-            fail_silently=True,
-        )
-    except Exception as e:
-        # Log error but don't fail the registration
-        import logging
-        logger = logging.getLogger('core')
-        logger.error(f"Failed to send OTP email to {email}: {str(e)}")
-        pass
+        '''
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=True,
+                timeout=5,  # 5 second timeout
+            )
+        except Exception as e:
+            # Log error but don't fail
+            logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+    
+    # Send email in background thread so request doesn't wait
+    thread = threading.Thread(target=_send_email, daemon=True)
+    thread.start()
 
 
 def register_step1_email(request):
