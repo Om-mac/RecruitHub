@@ -426,7 +426,7 @@ def hr_logout(request):
     return redirect('hr_login')
 
 def password_reset_request(request):
-    """Handle password reset request"""
+    """Password Reset Step 1: Enter email"""
     if request.user.is_authenticated:
         return redirect('dashboard')
     
@@ -436,50 +436,26 @@ def password_reset_request(request):
             email = form.cleaned_data['email']
             try:
                 user = User.objects.get(email=email)
-                # Generate token
-                uid = urlsafe_base64_encode(force_bytes(user.pk))
-                token = default_token_generator.make_token(user)
                 
-                # Create reset link
-                reset_link = request.build_absolute_uri(f'/password_reset_confirm/{uid}/{token}/')
+                # Generate OTP
+                otp = ''.join(random.choices(string.digits, k=6))
                 
-                # Send email in background thread
-                def _send_reset_email():
-                    try:
-                        subject = 'Password Reset Request - RecruitHub'
-                        message = f'''
-Hello {user.first_name or user.username},
-
-We received a request to reset your password. Click the link below to reset it:
-
-{reset_link}
-
-This link is valid for 24 hours.
-
-If you didn't request a password reset, please ignore this email.
-
-Best regards,
-RecruitHub Team
-                        '''
-                        send_mail(
-                            subject,
-                            message,
-                            settings.DEFAULT_FROM_EMAIL,
-                            [email],
-                            fail_silently=True,
-                        )
-                        logger.info(f"Password reset email sent to {email}")
-                    except Exception as e:
-                        logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+                # Save OTP
+                EmailOTP.objects.filter(email=email).delete()
+                EmailOTP.objects.create(email=email, otp=otp)
                 
-                thread = threading.Thread(target=_send_reset_email, daemon=True)
-                thread.start()
+                # Send OTP email in background
+                send_otp_email(email, otp)
                 
-                messages.success(request, 'Password reset link has been sent to your email.')
-                return redirect('password_reset_done')
+                # Store email in session
+                request.session['password_reset_email'] = email
+                request.session['password_reset_otp_verified'] = False
+                
+                messages.success(request, f'OTP sent to {email}')
+                return redirect('password_reset_verify_otp')
             except User.DoesNotExist:
                 # For security, show same message even if user doesn't exist
-                messages.success(request, 'If an account with this email exists, you will receive a password reset link.')
+                messages.success(request, 'If an account with this email exists, you will receive an OTP.')
                 return redirect('password_reset_done')
     else:
         form = PasswordResetForm()
@@ -487,33 +463,96 @@ RecruitHub Team
     return render(request, 'core/password_reset.html', {'form': form})
 
 
+def password_reset_verify_otp(request):
+    """Password Reset Step 2: Verify OTP"""
+    email = request.session.get('password_reset_email')
+    
+    if not email:
+        messages.error(request, 'Please start from email entry.')
+        return redirect('password_reset_request')
+    
+    if request.method == 'POST':
+        form = OTPForm(request.POST)
+        if form.is_valid():
+            otp_code = form.cleaned_data['otp']
+            
+            # Verify OTP
+            try:
+                otp_obj = EmailOTP.objects.get(email=email, otp=otp_code)
+                
+                if otp_obj.is_expired():
+                    messages.error(request, 'OTP has expired. Please request a new one.')
+                    return redirect('password_reset_request')
+                
+                if not otp_obj.is_valid_attempt():
+                    messages.error(request, 'Too many failed attempts. Please request a new OTP.')
+                    return redirect('password_reset_request')
+                
+                # Mark as verified
+                request.session['password_reset_otp_verified'] = True
+                messages.success(request, 'OTP verified! Now set your new password.')
+                return redirect('password_reset_confirm')
+                
+            except EmailOTP.DoesNotExist:
+                otp_obj = EmailOTP.objects.get(email=email)
+                otp_obj.failed_attempts += 1
+                otp_obj.save()
+                
+                remaining = 5 - otp_obj.failed_attempts
+                messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                
+                if otp_obj.failed_attempts >= 5:
+                    return redirect('password_reset_request')
+        else:
+            messages.error(request, 'Please enter a valid 6-digit OTP.')
+    else:
+        form = OTPForm()
+    
+    return render(request, 'core/password_reset_verify_otp.html', {'form': form, 'email': email})
+
+
+def password_reset_confirm(request):
+    """Password Reset Step 3: Set new password - REQUIRES OTP VERIFICATION"""
+    email = request.session.get('password_reset_email')
+    otp_verified = request.session.get('password_reset_otp_verified')
+    
+    # STRICT OTP VERIFICATION - No exceptions!
+    if not email or not otp_verified:
+        messages.error(request, 'OTP verification is REQUIRED. Please complete the password reset process.')
+        return redirect('password_reset_request')
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        messages.error(request, 'User not found.')
+        return redirect('password_reset_request')
+    
+    if request.method == 'POST':
+        form = SetPasswordForm(request.POST)
+        if form.is_valid():
+            user.set_password(form.cleaned_data['new_password1'])
+            user.save()
+            
+            # CLEAN UP: Remove OTP and session data
+            EmailOTP.objects.filter(email=email).delete()
+            request.session.pop('password_reset_email', None)
+            request.session.pop('password_reset_otp_verified', None)
+            
+            messages.success(request, 'Your password has been reset successfully. Please login with your new password.')
+            return redirect('login')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = SetPasswordForm()
+    
+    return render(request, 'core/password_reset_confirm.html', {'form': form, 'email': email})
+
+
 def password_reset_done(request):
     """Show confirmation message after reset request"""
     return render(request, 'core/password_reset_done.html')
-
-
-def password_reset_confirm(request, uidb64, token):
-    """Confirm password reset token and allow user to set new password"""
-    try:
-        uid = force_str(urlsafe_base64_decode(uidb64))
-        user = User.objects.get(pk=uid)
-    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-        user = None
-    
-    if user is not None and default_token_generator.check_token(user, token):
-        if request.method == 'POST':
-            form = SetPasswordForm(request.POST)
-            if form.is_valid():
-                user.set_password(form.cleaned_data['new_password1'])
-                user.save()
-                messages.success(request, 'Your password has been reset successfully. Please login with your new password.')
-                return redirect('login')
-        else:
-            form = SetPasswordForm()
-        return render(request, 'core/password_reset_confirm.html', {'form': form})
-    else:
-        messages.error(request, 'The password reset link is invalid or has expired.')
-        return redirect('password_reset_request')
 
 
 @login_required(login_url='login')

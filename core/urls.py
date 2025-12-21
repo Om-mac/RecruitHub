@@ -18,10 +18,11 @@ urlpatterns = [
     path('note/<int:note_id>/edit/', views.edit_note, name='edit_note'),
     path('note/<int:note_id>/delete/', views.delete_note, name='delete_note'),
     
-    # Password reset URLs
+    # Password reset URLs - OTP based (3-step process)
     path('password_reset/', views.password_reset_request, name='password_reset_request'),
+    path('password_reset_verify_otp/', views.password_reset_verify_otp, name='password_reset_verify_otp'),
+    path('password_reset_confirm/', views.password_reset_confirm, name='password_reset_confirm'),
     path('password_reset_done/', views.password_reset_done, name='password_reset_done'),
-    path('password_reset_confirm/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
     
     # Change password URLs
     path('change_password/', views.change_password, name='change_password'),
