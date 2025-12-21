@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.RateLimitMiddleware",  # Rate limiting for brute force protection
     "core.middleware.RequestLoggingMiddleware",  # Log all requests
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -63,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.ErrorHandlingMiddleware",  # Catch all errors
     "core.middleware.SecurityHeadersMiddleware",  # Add security headers
+    "core.middleware.XSSProtectionMiddleware",  # XSS protection
 ]
 
 ROOT_URLCONF = "auth_project.urls"
@@ -166,6 +168,23 @@ SECURE_CONTENT_SECURITY_POLICY = {
 }
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = 'Strict'
+
+# Session security settings
+SESSION_COOKIE_AGE = 3600  # 1 hour session timeout
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_SAVE_EVERY_REQUEST = True  # Update session expiry on every request
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_AGE = 31449600  # 1 year
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://vakverse.com,https://*.vakverse.com').split(',')
+
+# Cache configuration for rate limiting
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'security-cache',
+    }
+}
 
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'home'

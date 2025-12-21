@@ -1,6 +1,15 @@
 from django import forms
 from django.contrib.auth.models import User
 from .models import Document, Note, UserProfile, HRProfile
+from bleach import clean
+
+# XSS Protection helper function
+def sanitize_input(value):
+    """Sanitize user input to prevent XSS attacks"""
+    if not value:
+        return value
+    # Allow only plain text, remove all HTML/JavaScript
+    return clean(str(value).strip(), tags=[], strip=True)
 
 class UserRegistrationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput)
@@ -18,15 +27,16 @@ class UserRegistrationForm(forms.ModelForm):
         }
     
     def clean_username(self):
-        username = self.cleaned_data.get('username')
+        username = sanitize_input(self.cleaned_data.get('username'))
         if not username:
             raise forms.ValidationError('Username is required.')
         if User.objects.filter(username=username).exists():
             raise forms.ValidationError('This username already exists. Please choose another.')
+        # Prevent SQL injection by using ORM (Django handles parameterized queries)
         return username
     
     def clean_email(self):
-        email = self.cleaned_data.get('email')
+        email = sanitize_input(self.cleaned_data.get('email'))
         if not email:
             raise forms.ValidationError('Email is required.')
         if User.objects.filter(email=email).exists():
@@ -34,13 +44,13 @@ class UserRegistrationForm(forms.ModelForm):
         return email
     
     def clean_first_name(self):
-        first_name = self.cleaned_data.get('first_name')
+        first_name = sanitize_input(self.cleaned_data.get('first_name'))
         if not first_name:
             raise forms.ValidationError('First name is required.')
         return first_name
     
     def clean_last_name(self):
-        last_name = self.cleaned_data.get('last_name')
+        last_name = sanitize_input(self.cleaned_data.get('last_name'))
         if not last_name:
             raise forms.ValidationError('Last name is required.')
         return last_name
@@ -51,6 +61,7 @@ class UserRegistrationForm(forms.ModelForm):
             raise forms.ValidationError('Password is required.')
         if len(password) < 8:
             raise forms.ValidationError('Password must be at least 8 characters long.')
+        # Don't sanitize passwords - they may contain special characters
         return password
     
     def clean(self):
@@ -78,7 +89,7 @@ class HRRegistrationForm(forms.ModelForm):
         }
     
     def clean_username(self):
-        username = self.cleaned_data.get('username')
+        username = sanitize_input(self.cleaned_data.get('username'))
         if not username:
             raise forms.ValidationError('Username is required.')
         if User.objects.filter(username=username).exists():
@@ -86,7 +97,7 @@ class HRRegistrationForm(forms.ModelForm):
         return username
     
     def clean_email(self):
-        email = self.cleaned_data.get('email')
+        email = sanitize_input(self.cleaned_data.get('email'))
         if not email:
             raise forms.ValidationError('Email is required.')
         if User.objects.filter(email=email).exists():
@@ -94,13 +105,13 @@ class HRRegistrationForm(forms.ModelForm):
         return email
     
     def clean_first_name(self):
-        first_name = self.cleaned_data.get('first_name')
+        first_name = sanitize_input(self.cleaned_data.get('first_name'))
         if not first_name:
             raise forms.ValidationError('First name is required.')
         return first_name
     
     def clean_last_name(self):
-        last_name = self.cleaned_data.get('last_name')
+        last_name = sanitize_input(self.cleaned_data.get('last_name'))
         if not last_name:
             raise forms.ValidationError('Last name is required.')
         return last_name
