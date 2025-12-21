@@ -7,24 +7,42 @@ class CoreConfig(AppConfig):
     
     def ready(self):
         """Create superuser on app startup if not exists"""
-        # Skip in production or during migrations to avoid RuntimeWarning
         import sys
+        
+        # Skip during migrations
         if 'migrate' in sys.argv or 'makemigrations' in sys.argv:
             return
         
         try:
-            from django.contrib.auth.models import User
             from django.db import connection
+            from django.contrib.auth.models import User
             
-            # Only run if database is ready
-            if connection.connection is not None:
-                username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
-                email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@vakverse.com')
-                password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
-                
-                if password and not User.objects.filter(username=username).exists():
-                    User.objects.create_superuser(username, email, password)
-                    print(f'✓ Superuser "{username}" created automatically on app startup')
+            # Check if database is accessible
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            
+            username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
+            email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@vakverse.com')
+            password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+            
+            if password:
+                user, created = User.objects.get_or_create(
+                    username=username,
+                    defaults={
+                        'email': email,
+                        'is_staff': True,
+                        'is_superuser': True,
+                        'is_active': True
+                    }
+                )
+                if created:
+                    user.set_password(password)
+                    user.save()
+                    print(f'✓ Superuser "{username}" created on startup')
+                else:
+                    # Update password if user exists
+                    if user.password != password:
+                        user.set_password(password)
+                        user.save()
         except Exception as e:
-            # Silently ignore - database might not be ready yet
             pass
