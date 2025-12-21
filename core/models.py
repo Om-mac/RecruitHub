@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
 class UserProfile(models.Model):
@@ -111,3 +111,11 @@ class EmailOTP(models.Model):
         """Check if user has too many failed attempts"""
         return self.attempts < 5
 
+
+@receiver(pre_delete, sender=User)
+def delete_email_otp_on_user_delete(sender, instance, **kwargs):
+    """Delete associated EmailOTP when user is deleted"""
+    try:
+        EmailOTP.objects.filter(email=instance.email).delete()
+    except Exception as e:
+        print(f"Note: Could not delete EmailOTP for {instance.email}: {str(e)}")
