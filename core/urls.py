@@ -27,9 +27,14 @@ urlpatterns = [
     path('change_password/', views.change_password, name='change_password'),
     path('password_change_done/', views.password_change_done, name='password_change_done'),
     
+    # HR Registration with OTP (3-step process)
+    path('hr/register/', views.hr_register, name='hr_register'),
+    path('hr/register_step1/', views.hr_register_step1_email, name='hr_register_step1_email'),
+    path('hr/register_step2/', views.hr_register_step2_verify_otp, name='hr_register_step2_verify_otp'),
+    path('hr/register_step3/', views.hr_register_step3_create_account, name='hr_register_step3_create_account'),
+    
     # HR URLs
     path('hr/login/', views.hr_login, name='hr_login'),
-    path('hr/register/', views.hr_register, name='hr_register'),
     path('hr/dashboard/', views.hr_dashboard, name='hr_dashboard'),
     path('hr/student/<int:user_id>/', views.student_detail, name='student_detail'),
     path('hr/logout/', views.hr_logout, name='hr_logout'),

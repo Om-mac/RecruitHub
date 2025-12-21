@@ -182,7 +182,23 @@ def hr_login(request):
 
 
 def hr_register(request):
-    """HR Registration Page - Note: Admin approval might be needed"""
+    """
+    HR Registration - Now requires email verification with OTP
+    Step 1 of 3-step HR registration process
+    """
+    if request.user.is_authenticated:
+        if hasattr(request.user, 'hr_profile'):
+            return redirect('hr_dashboard')
+        else:
+            return redirect('dashboard')
+    
+    # ENFORCE: All HR registrations must use OTP verification flow
+    messages.info(request, 'Please register using our secure email verification process.')
+    return redirect('hr_register_step1_email')
+
+
+def hr_register_step1_email(request):
+    """HR Registration Step 1: Enter email"""
     if request.user.is_authenticated:
         if hasattr(request.user, 'hr_profile'):
             return redirect('hr_dashboard')
@@ -190,8 +206,105 @@ def hr_register(request):
             return redirect('dashboard')
     
     if request.method == 'POST':
+        form = EmailOTPForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            
+            # Check if HR already exists
+            if User.objects.filter(email=email).exists():
+                messages.error(request, 'This email is already registered.')
+                return render(request, 'core/hr_register_step1_email.html', {'form': form})
+            
+            # Generate OTP
+            otp = ''.join(random.choices(string.digits, k=6))
+            
+            # Save OTP
+            EmailOTP.objects.filter(email=email).delete()
+            EmailOTP.objects.create(email=email, otp=otp)
+            
+            # Send OTP email in background
+            send_otp_email(email, otp)
+            
+            # Store email in session
+            request.session['hr_registration_email'] = email
+            request.session['hr_otp_verified'] = False
+            
+            messages.success(request, f'OTP sent to {email}')
+            return redirect('hr_register_step2_verify_otp')
+        else:
+            messages.error(request, 'Please enter a valid email.')
+    else:
+        form = EmailOTPForm()
+    
+    return render(request, 'core/hr_register_step1_email.html', {'form': form})
+
+
+def hr_register_step2_verify_otp(request):
+    """HR Registration Step 2: Verify OTP"""
+    email = request.session.get('hr_registration_email')
+    
+    if not email:
+        messages.error(request, 'Please start from email entry.')
+        return redirect('hr_register_step1_email')
+    
+    if request.method == 'POST':
+        form = OTPForm(request.POST)
+        if form.is_valid():
+            otp_code = form.cleaned_data['otp']
+            
+            # Verify OTP
+            try:
+                otp_obj = EmailOTP.objects.get(email=email, otp=otp_code)
+                
+                if otp_obj.is_expired():
+                    messages.error(request, 'OTP has expired. Please request a new one.')
+                    return redirect('hr_register_step1_email')
+                
+                if not otp_obj.is_valid_attempt():
+                    messages.error(request, 'Too many failed attempts. Please request a new OTP.')
+                    return redirect('hr_register_step1_email')
+                
+                # Mark as verified
+                request.session['hr_otp_verified'] = True
+                messages.success(request, 'Email verified! Now create your HR account.')
+                return redirect('hr_register_step3_create_account')
+                
+            except EmailOTP.DoesNotExist:
+                otp_obj = EmailOTP.objects.get(email=email)
+                otp_obj.failed_attempts += 1
+                otp_obj.save()
+                
+                remaining = 5 - otp_obj.failed_attempts
+                messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                
+                if otp_obj.failed_attempts >= 5:
+                    return redirect('hr_register_step1_email')
+        else:
+            messages.error(request, 'Please enter a valid 6-digit OTP.')
+    else:
+        form = OTPForm()
+    
+    return render(request, 'core/hr_register_step2_verify_otp.html', {'form': form, 'email': email})
+
+
+def hr_register_step3_create_account(request):
+    """HR Registration Step 3: Create HR account - STRICTLY REQUIRES EMAIL VERIFICATION"""
+    email = request.session.get('hr_registration_email')
+    otp_verified = request.session.get('hr_otp_verified')
+    
+    # STRICT EMAIL VERIFICATION - No exceptions!
+    if not email or not otp_verified:
+        messages.error(request, 'Email verification is REQUIRED. Please complete the registration process.')
+        return redirect('hr_register_step1_email')
+    
+    if request.method == 'POST':
         user_form = HRRegistrationForm(request.POST)
         if user_form.is_valid():
+            # STRICT: Email must match verified email
+            if user_form.cleaned_data.get('email') != email:
+                messages.error(request, 'Email must match the verified email. Registration failed.')
+                return render(request, 'core/hr_register_step3_create_account.html', {'form': user_form, 'email': email})
+            
             user = user_form.save(commit=False)
             user.set_password(user_form.cleaned_data['password'])
             user.save()
@@ -204,16 +317,21 @@ def hr_register(request):
                 department=request.POST.get('department', '')
             )
             
-            messages.success(request, 'HR Registration successful! Please log in.')
+            # CLEAN UP: Remove OTP and session data
+            EmailOTP.objects.filter(email=email).delete()
+            request.session.pop('hr_registration_email', None)
+            request.session.pop('hr_otp_verified', None)
+            
+            messages.success(request, 'HR Registration successful! Your email has been verified. Please log in.')
             return redirect('hr_login')
         else:
             for field, errors in user_form.errors.items():
                 for error in errors:
                     messages.error(request, f"{field}: {error}")
     else:
-        user_form = HRRegistrationForm()
+        user_form = HRRegistrationForm(initial={'email': email})
     
-    return render(request, 'core/hr_register.html', {'form': user_form})
+    return render(request, 'core/hr_register_step3_create_account.html', {'form': user_form, 'email': email})
 
 
 @login_required(login_url='hr_login')
