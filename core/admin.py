@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.auth.models import User
 from django.utils.html import format_html
 from .models import UserProfile, Document, Note, HRProfile, EmailOTP
 
@@ -18,10 +19,11 @@ custom_admin = CustomAdminSite(name='recruitHub_admin')
 
 @admin.register(UserProfile, site=custom_admin)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user_badge', 'college_badge', 'branch', 'degree', 'year_display', 'cgpa_badge', 'github_username']
+    list_display = ['user_badge', 'college_badge', 'branch', 'degree', 'year_display', 'cgpa_badge', 'github_username', 'delete_user_link']
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'college_name', 'branch', 'phone', 'specialization', 'github_username', 'linkedin_username']
     list_filter = ['branch', 'degree', 'gender', 'year_of_study', 'admission_year', 'cgpa', 'date_of_birth']
     readonly_fields = ('user', 'created_at')
+    actions = ['delete_selected']
     
     fieldsets = (
         ('User Info', {'fields': ('user', 'created_at')}),
@@ -39,7 +41,29 @@ class UserProfileAdmin(admin.ModelAdmin):
         )
     user_badge.short_description = 'User'
     
-    def college_badge(self, obj):
+    def delete_user_link(self, obj):
+        """Show a delete button to remove both user and profile"""
+        from django.urls import reverse
+        url = reverse('admin:auth_user_change', args=[obj.user.id])
+        return format_html(
+            '<a class="button" style="background: #e74c3c; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none;" href="{}?next={}">🗑️ Delete User</a>',
+            url,
+            reverse('admin:core_userprofile_changelist')
+        )
+    delete_user_link.short_description = 'Action'
+    
+    def has_delete_permission(self, request, obj=None):
+        """Allow superuser to delete profiles"""
+        return request.user.is_superuser
+    
+    def delete_model(self, request, obj):
+        """Delete the associated User when UserProfile is deleted"""
+        if obj.user:
+            user = obj.user
+            super().delete_model(request, obj)
+            user.delete()
+        else:
+            super().delete_model(request, obj)
         return format_html(
             '<span style="background: #764ba2; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px;">🏫 {}</span>',
             obj.college_name if obj.college_name else 'N/A'
@@ -240,3 +264,14 @@ class EmailOTPAdmin(admin.ModelAdmin):
             )
     validity_badge.short_description = 'Status'
 
+
+# Register User model with custom delete functionality
+@admin.register(User, site=custom_admin)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ['username', 'first_name', 'last_name', 'email', 'is_staff', 'is_active']
+    search_fields = ['username', 'first_name', 'last_name', 'email']
+    list_filter = ['is_staff', 'is_active', 'date_joined']
+    
+    def has_delete_permission(self, request, obj=None):
+        """Allow superuser to delete users"""
+        return request.user.is_superuser
