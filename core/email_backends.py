@@ -44,7 +44,7 @@ class ResendBackend(BaseEmailBackend):
             try:
                 # Prepare email data
                 params = {
-                    "from": "onboarding@resend.dev",  # Use Resend's test email
+                    "from": "noreply@vakverse.com",  # Use verified vakverse domain
                     "to": message.to[0] if isinstance(message.to, list) else message.to,
                     "subject": message.subject,
                 }
