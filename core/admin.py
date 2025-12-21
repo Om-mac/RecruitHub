@@ -60,10 +60,18 @@ class UserProfileAdmin(admin.ModelAdmin):
         """Delete the associated User when UserProfile is deleted"""
         if obj.user:
             user = obj.user
-            super().delete_model(request, obj)
+            # Delete the user first, which will cascade delete the profile
             user.delete()
         else:
             super().delete_model(request, obj)
+    
+    def delete_queryset(self, request, queryset):
+        """Delete users when deleting multiple profiles at once"""
+        for obj in queryset:
+            if obj.user:
+                obj.user.delete()
+            else:
+                obj.delete()
     
     def college_badge(self, obj):
         return format_html(
