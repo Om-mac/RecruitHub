@@ -26,25 +26,17 @@ def home(request):
     return redirect('login')
 
 def register(request):
+    """
+    OLD REGISTER ENDPOINT - REDIRECTS TO OTP-BASED REGISTRATION
+    All registrations MUST go through email verification with OTP
+    No exceptions allowed!
+    """
     if request.user.is_authenticated:
         return redirect('dashboard')
     
-    if request.method == 'POST':
-        form = UserRegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
-            user.save()
-            # Profile is auto-created via signal
-            messages.success(request, 'Registration successful! Please log in.')
-            return redirect('login')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field}: {error}")
-    else:
-        form = UserRegistrationForm()
-    return render(request, 'core/register.html', {'form': form})
+    # ENFORCE: All registrations must use OTP verification flow
+    messages.info(request, 'Please register using our secure email verification process.')
+    return redirect('register_step1_email')
 
 @login_required(login_url='login')
 def profile(request):
