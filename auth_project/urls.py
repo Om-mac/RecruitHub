@@ -17,13 +17,16 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.contrib.auth.views import LoginView, LogoutView
 from django.conf import settings
 from django.conf.urls.static import static
 from core import error_views
 
 urlpatterns = [
     path("admintapdiyaom/", admin.site.urls),
-    path('accounts/', include('django.contrib.auth.urls')),
+    # Custom login/logout (from django.contrib.auth)
+    path('accounts/login/', LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('accounts/logout/', LogoutView.as_view(), name='logout'),
     path('', include('core.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
