@@ -1,5 +1,5 @@
 import logging
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 
 logger = logging.getLogger(__name__)
@@ -28,13 +28,20 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Only set security headers if response supports item assignment
-        if hasattr(response, '__setitem__'):
-            # Security headers
-            response['X-Content-Type-Options'] = 'nosniff'
-            response['X-Frame-Options'] = 'DENY'
-            response['X-XSS-Protection'] = '1; mode=block'
-            response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        # Only set security headers on proper HttpResponse objects
+        if isinstance(response, HttpResponse):
+            try:
+                # Security headers - only set if not already set
+                if 'X-Content-Type-Options' not in response:
+                    response['X-Content-Type-Options'] = 'nosniff'
+                if 'X-Frame-Options' not in response:
+                    response['X-Frame-Options'] = 'DENY'
+                if 'X-XSS-Protection' not in response:
+                    response['X-XSS-Protection'] = '1; mode=block'
+                if 'Referrer-Policy' not in response:
+                    response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+            except (AttributeError, TypeError) as e:
+                logger.debug(f"Could not set security headers: {e}")
         
         return response
 

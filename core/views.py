@@ -549,32 +549,33 @@ def register_step2_verify_otp(request):
 
 
 def register_step3_create_account(request):
-    """Step 3: Create account (original register view)"""
+    """Step 3: Create account (original register view) - STRICTLY REQUIRES EMAIL VERIFICATION"""
     email = request.session.get('registration_email')
     otp_verified = request.session.get('otp_verified')
     
+    # STRICT EMAIL VERIFICATION - No exceptions!
     if not email or not otp_verified:
-        messages.error(request, 'Please complete email verification first.')
+        messages.error(request, 'Email verification is REQUIRED. Please complete the registration process.')
         return redirect('register_step1_email')
     
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            # Make sure email matches verified email
+            # STRICT: Email must match verified email
             if form.cleaned_data.get('email') != email:
-                messages.error(request, 'Email must match the verified email.')
-                return form
+                messages.error(request, 'Email must match the verified email. Registration failed.')
+                return render(request, 'core/register_step3_create_account.html', {'form': form, 'email': email})
             
             user = form.save(commit=False)
             user.set_password(form.cleaned_data['password'])
             user.save()
             
-            # Clean up session and OTP
+            # CLEAN UP: Remove OTP and session data
             EmailOTP.objects.filter(email=email).delete()
-            del request.session['registration_email']
-            del request.session['otp_verified']
+            request.session.pop('registration_email', None)
+            request.session.pop('otp_verified', None)
             
-            messages.success(request, 'Registration successful! Please log in.')
+            messages.success(request, 'Registration successful! Your email has been verified. Please log in.')
             return redirect('login')
         else:
             for field, errors in form.errors.items():
