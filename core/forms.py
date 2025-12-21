@@ -91,6 +91,75 @@ class UserProfileForm(forms.ModelForm):
             'resume': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
+class PasswordResetForm(forms.Form):
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email'
+        })
+    )
+
+class SetPasswordForm(forms.Form):
+    new_password1 = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter new password',
+            'autocomplete': 'new-password'
+        })
+    )
+    new_password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm new password',
+            'autocomplete': 'new-password'
+        })
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('new_password1') != cleaned_data.get('new_password2'):
+            raise forms.ValidationError('Passwords do not match')
+        if len(cleaned_data.get('new_password1', '')) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters long')
+        return cleaned_data
+
+class ChangePasswordForm(forms.Form):
+    old_password = forms.CharField(
+        label='Current Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter current password',
+            'autocomplete': 'current-password'
+        })
+    )
+    new_password1 = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter new password',
+            'autocomplete': 'new-password'
+        })
+    )
+    new_password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirm new password',
+            'autocomplete': 'new-password'
+        })
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('new_password1') != cleaned_data.get('new_password2'):
+            raise forms.ValidationError('New passwords do not match')
+        if len(cleaned_data.get('new_password1', '')) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters long')
+        return cleaned_data
+
 class DocumentForm(forms.ModelForm):
     class Meta:
         model = Document

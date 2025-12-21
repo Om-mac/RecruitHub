@@ -12,6 +12,15 @@ urlpatterns = [
     path('note/<int:note_id>/edit/', views.edit_note, name='edit_note'),
     path('note/<int:note_id>/delete/', views.delete_note, name='delete_note'),
     
+    # Password reset URLs
+    path('password_reset/', views.password_reset_request, name='password_reset_request'),
+    path('password_reset_done/', views.password_reset_done, name='password_reset_done'),
+    path('password_reset_confirm/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
+    
+    # Change password URLs
+    path('change_password/', views.change_password, name='change_password'),
+    path('password_change_done/', views.password_change_done, name='password_change_done'),
+    
     # HR URLs
     path('hr/login/', views.hr_login, name='hr_login'),
     path('hr/register/', views.hr_register, name='hr_register'),

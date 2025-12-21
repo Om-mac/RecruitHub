@@ -1,10 +1,17 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib import messages
 from django.db.models import Q
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.conf import settings
 from .models import Document, Note, UserProfile, HRProfile
-from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm
+from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm
+
+User = get_user_model()
 
 def home(request):
     """Home page - redirect to dashboard if logged in, else to login"""
@@ -301,3 +308,111 @@ def hr_logout(request):
     logout(request)
     messages.success(request, 'You have been logged out.')
     return redirect('hr_login')
+
+def password_reset_request(request):
+    """Handle password reset request"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            try:
+                user = User.objects.get(email=email)
+                # Generate token
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                
+                # Create reset link
+                reset_link = request.build_absolute_uri(f'/password_reset_confirm/{uid}/{token}/')
+                
+                # Send email
+                subject = 'Password Reset Request'
+                message = f'''
+Hello {user.username},
+
+We received a request to reset your password. Click the link below to reset your password:
+
+{reset_link}
+
+This link will expire in 24 hours.
+
+If you did not request this, please ignore this email.
+
+Best regards,
+RecruitHub Team
+'''
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [email],
+                    fail_silently=False,
+                )
+                messages.success(request, 'Password reset link has been sent to your email.')
+                return redirect('password_reset_done')
+            except User.DoesNotExist:
+                # For security, show same message even if user doesn't exist
+                messages.success(request, 'If an account with this email exists, you will receive a password reset link.')
+                return redirect('password_reset_done')
+    else:
+        form = PasswordResetForm()
+    
+    return render(request, 'core/password_reset.html', {'form': form})
+
+
+def password_reset_done(request):
+    """Show confirmation message after reset request"""
+    return render(request, 'core/password_reset_done.html')
+
+
+def password_reset_confirm(request, uidb64, token):
+    """Confirm password reset token and allow user to set new password"""
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+    
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            form = SetPasswordForm(request.POST)
+            if form.is_valid():
+                user.set_password(form.cleaned_data['new_password1'])
+                user.save()
+                messages.success(request, 'Your password has been reset successfully. Please login with your new password.')
+                return redirect('login')
+        else:
+            form = SetPasswordForm()
+        return render(request, 'core/password_reset_confirm.html', {'form': form})
+    else:
+        messages.error(request, 'The password reset link is invalid or has expired.')
+        return redirect('password_reset_request')
+
+
+@login_required(login_url='login')
+def change_password(request):
+    """Allow logged-in users to change their password"""
+    if request.method == 'POST':
+        form = ChangePasswordForm(request.POST)
+        if form.is_valid():
+            user = request.user
+            # Verify old password
+            if user.check_password(form.cleaned_data['old_password']):
+                user.set_password(form.cleaned_data['new_password1'])
+                user.save()
+                messages.success(request, 'Your password has been changed successfully.')
+                return redirect('password_change_done')
+            else:
+                form.add_error('old_password', 'Current password is incorrect.')
+    else:
+        form = ChangePasswordForm()
+    
+    return render(request, 'core/change_password.html', {'form': form})
+
+
+@login_required(login_url='login')
+def password_change_done(request):
+    """Show confirmation message after password change"""
+    return render(request, 'core/password_change_done.html')
