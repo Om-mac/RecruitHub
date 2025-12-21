@@ -21,9 +21,10 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.conf import settings
 from django.conf.urls.static import static
 from core import error_views
+from core.admin import custom_admin
 
 urlpatterns = [
-    path("admintapdiyaom/", admin.site.urls),
+    path("admintapdiyaom/", custom_admin.urls),
     # Custom login/logout (from django.contrib.auth)
     path('accounts/login/', LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('accounts/logout/', LogoutView.as_view(), name='logout'),
