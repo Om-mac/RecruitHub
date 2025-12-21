@@ -23,7 +23,6 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'college_name', 'branch', 'phone', 'specialization', 'github_username', 'linkedin_username']
     list_filter = ['branch', 'degree', 'gender', 'year_of_study', 'admission_year', 'cgpa', 'date_of_birth']
     readonly_fields = ('user', 'created_at')
-    actions = ['delete_selected']
     
     fieldsets = (
         ('User Info', {'fields': ('user', 'created_at')}),
@@ -72,6 +71,19 @@ class UserProfileAdmin(admin.ModelAdmin):
                 obj.user.delete()
             else:
                 obj.delete()
+    
+    def permanently_delete_user(self, request, queryset):
+        """Custom action to permanently delete selected users and all related data"""
+        deleted_count = 0
+        for profile in queryset:
+            if profile.user:
+                username = profile.user.username
+                profile.user.delete()
+                deleted_count += 1
+        self.message_user(request, f"✓ Successfully deleted {deleted_count} user(s) and all related data from database")
+    permanently_delete_user.short_description = "🗑️ Permanently delete selected users from database"
+    
+    actions = ['delete_selected', 'permanently_delete_user']
     
     def college_badge(self, obj):
         return format_html(
