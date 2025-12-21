@@ -300,8 +300,10 @@ def hr_register_step3_create_account(request):
     if request.method == 'POST':
         user_form = HRRegistrationForm(request.POST)
         if user_form.is_valid():
-            # STRICT: Email must match verified email
-            if user_form.cleaned_data.get('email') != email:
+            # STRICT: Email must match verified email (case-insensitive comparison)
+            form_email = user_form.cleaned_data.get('email', '').strip().lower()
+            session_email = email.strip().lower() if email else ''
+            if form_email != session_email:
                 messages.error(request, 'Email must match the verified email. Registration failed.')
                 return render(request, 'core/hr_register_step3_create_account.html', {'form': user_form, 'email': email})
             
@@ -726,8 +728,10 @@ def register_step3_create_account(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            # STRICT: Email must match verified email
-            if form.cleaned_data.get('email') != email:
+            # STRICT: Email must match verified email (case-insensitive comparison)
+            form_email = form.cleaned_data.get('email', '').strip().lower()
+            session_email = email.strip().lower() if email else ''
+            if form_email != session_email:
                 messages.error(request, 'Email must match the verified email. Registration failed.')
                 return render(request, 'core/register_step3_create_account.html', {'form': form, 'email': email})
             
