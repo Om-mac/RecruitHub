@@ -90,7 +90,7 @@
 3. Add these variables:
 
 ```
-RESEND_API_KEY=re_4N1bno97_Hp54iTnK52NHsw37RPfCXgsW
+RESEND_API_KEY=[YOUR_NEW_RESEND_API_KEY]
 SECRET_KEY=ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3
 DEBUG=False
 ALLOWED_HOSTS=vakverse.com,www.vakverse.com,recruithub-k435.onrender.com
@@ -202,7 +202,7 @@ DEFAULT_FROM_EMAIL=noreply@vakverse.com
 
 **Essential (Copy from .env):**
 ```
-RESEND_API_KEY=re_4N1bno97_Hp54iTnK52NHsw37RPfCXgsW
+RESEND_API_KEY=[YOUR_NEW_RESEND_API_KEY]
 SECRET_KEY=ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3
 DEBUG=False
 ALLOWED_HOSTS=vakverse.com,www.vakverse.com,recruithub-k435.onrender.com
