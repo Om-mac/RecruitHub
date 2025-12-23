@@ -85,10 +85,11 @@ class UserProfileAdmin(admin.ModelAdmin):
     permanently_delete_user.short_description = "🗑️ Permanently delete selected users from database"
     
     def create_50_fake_users(self, request, queryset):
-        """Create 50 test users (22IF001-22IF050) with complete profiles"""
+        """Create 10 test users (22IF001-22IF010) with complete profiles"""
         try:
             from faker import Faker
             import random
+            from django.db import transaction
             
             fake = Faker()
             branches = ['CSE', 'ECE', 'Mechanical', 'Civil', 'EEE', 'IT', 'Production']
@@ -106,48 +107,64 @@ class UserProfileAdmin(admin.ModelAdmin):
             skipped_count = 0
             User = get_user_model()
             
-            for i in range(1, 51):
-                username = f'22IF{i:03d}'
-                password = f'{username}{username}'
-                email = f'{username}@college.edu'
-                
-                if User.objects.filter(username=username).exists():
-                    skipped_count += 1
-                    continue
-                
-                user = User.objects.create_user(
-                    username=username, email=email, password=password,
-                    first_name=fake.first_name(), last_name=fake.last_name(),
-                )
-                
-                profile = user.profile
-                profile.middle_name = fake.first_name()
-                profile.phone = fake.phone_number()[:15]
-                profile.date_of_birth = fake.date_of_birth(minimum_age=18, maximum_age=25)
-                profile.gender = random.choice(genders)
-                profile.address = fake.address()
-                profile.city = fake.city()
-                profile.state = fake.state()
-                profile.pincode = fake.postcode()[:10]
-                profile.college_name = 'XYZ College of Engineering'
-                profile.branch = random.choice(branches)
-                profile.degree = 'B.Tech'
-                profile.specialization = profile.branch
-                profile.cgpa = round(random.uniform(6.5, 9.2), 2)
-                profile.year_of_study = random.choice(years)
-                profile.admission_year = random.randint(2020, 2023)
-                profile.backlogs = random.randint(0, 3)
-                profile.current_backlogs = random.randint(0, 2)
-                profile.skills = random.choice(skills_list)
-                profile.github_username = fake.user_name()
-                profile.linkedin_username = fake.user_name()
-                profile.hackerrank_username = fake.user_name()
-                profile.experience = f'{random.randint(0, 3)} years'
-                profile.bio = fake.text(max_nb_chars=200)
-                profile.save()
-                created_count += 1
+            # Pre-check existing users
+            existing_usernames = set(User.objects.filter(
+                username__startswith='22IF'
+            ).values_list('username', flat=True))
             
-            msg = f'✅ Created {created_count} test users (22IF001-22IF050)'
+            with transaction.atomic():
+                # Create all users in one transaction
+                for i in range(1, 11):  # Create 10 users instead of 50
+                    username = f'22IF{i:03d}'
+                    if username in existing_usernames:
+                        skipped_count += 1
+                        continue
+                    
+                    password = f'{username}{username}'
+                    email = f'{username}@college.edu'
+                    
+                    user = User.objects.create_user(
+                        username=username, email=email, password=password,
+                        first_name=fake.first_name(), last_name=fake.last_name(),
+                    )
+                    created_count += 1
+                
+                # Now create profiles for all users
+                UserProfile = get_user_model().profile.field.related_model
+                profiles = []
+                for i in range(1, 11):  # Create 10 users instead of 50
+                    username = f'22IF{i:03d}'
+                    if username in existing_usernames:
+                        continue
+                    
+                    user = User.objects.get(username=username)
+                    profile = user.profile
+                    profile.middle_name = fake.first_name()
+                    profile.phone = fake.phone_number()[:15]
+                    profile.date_of_birth = fake.date_of_birth(minimum_age=18, maximum_age=25)
+                    profile.gender = random.choice(genders)
+                    profile.address = fake.address()
+                    profile.city = fake.city()
+                    profile.state = fake.state()
+                    profile.pincode = fake.postcode()[:10]
+                    profile.college_name = 'XYZ College of Engineering'
+                    profile.branch = random.choice(branches)
+                    profile.degree = 'B.Tech'
+                    profile.specialization = profile.branch
+                    profile.cgpa = round(random.uniform(6.5, 9.2), 2)
+                    profile.year_of_study = random.choice(years)
+                    profile.admission_year = random.randint(2020, 2023)
+                    profile.backlogs = random.randint(0, 3)
+                    profile.current_backlogs = random.randint(0, 2)
+                    profile.skills = random.choice(skills_list)
+                    profile.github_username = fake.user_name()
+                    profile.linkedin_username = fake.user_name()
+                    profile.hackerrank_username = fake.user_name()
+                    profile.experience = f'{random.randint(0, 3)} years'
+                    profile.bio = fake.text(max_nb_chars=200)
+                    profile.save()
+            
+            msg = f'✅ Created {created_count} test users (22IF001-22IF010)'
             if skipped_count > 0:
                 msg += f' | {skipped_count} already existed'
             self.message_user(request, msg)
@@ -157,7 +174,7 @@ class UserProfileAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f'❌ Error: {str(e)}', level='ERROR')
     
-    create_50_fake_users.short_description = "⚡ Create 50 Test Users (22IF001-22IF050)"
+    create_50_fake_users.short_description = "⚡ Create 10 Test Users (22IF001-22IF010)"
     
     actions = ['delete_selected', 'permanently_delete_user', 'create_50_fake_users']
     
