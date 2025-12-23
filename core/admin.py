@@ -221,14 +221,18 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 @admin.register(HRProfile, site=custom_admin)
 class HRProfileAdmin(admin.ModelAdmin):
-    list_display = ['user_badge', 'company_badge', 'designation', 'department']
+    list_display = ['user_badge', 'company_badge', 'designation', 'department', 'approval_status_badge', 'approval_requested_at']
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'company_name']
-    list_filter = ['department', 'created_at']
-    readonly_fields = ('user', 'created_at')
+    list_filter = ['is_approved', 'department', 'approval_requested_at', 'created_at']
+    readonly_fields = ('user', 'created_at', 'approval_requested_at', 'approved_at', 'approval_token', 'approval_status_info')
     
     fieldsets = (
         ('User Info', {'fields': ('user', 'created_at')}),
         ('Company Info', {'fields': ('company_name', 'designation', 'department')}),
+        ('Approval Status', {
+            'fields': ('is_approved', 'approval_status_info', 'approval_requested_at', 'approved_by', 'approved_at', 'approval_token', 'rejection_reason'),
+            'classes': ('collapse',),
+        }),
     )
     
     def user_badge(self, obj):
@@ -244,6 +248,38 @@ class HRProfileAdmin(admin.ModelAdmin):
             obj.company_name if obj.company_name else 'N/A'
         )
     company_badge.short_description = 'Company'
+    
+    def approval_status_badge(self, obj):
+        if obj.is_approved:
+            return format_html(
+                '<span style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">✓ Approved</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background: #f39c12; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">⏳ Pending</span>'
+            )
+    approval_status_badge.short_description = 'Status'
+    
+    def approval_status_info(self, obj):
+        if obj.is_approved:
+            return format_html(
+                '<p style="color: #27ae60; font-weight: bold;">✓ Account Approved</p>' +
+                f'<p>Approved by: {obj.approved_by.username if obj.approved_by else "System"}</p>' +
+                f'<p>Approved at: {obj.approved_at.strftime("%Y-%m-%d %H:%M:%S") if obj.approved_at else "N/A"}</p>'
+            )
+        else:
+            return format_html(
+                '<p style="color: #e74c3c; font-weight: bold;">⏳ Account Pending Approval</p>' +
+                f'<p>Requested at: {obj.approval_requested_at.strftime("%Y-%m-%d %H:%M:%S") if obj.approval_requested_at else "N/A"}</p>' +
+                '<p><a class="button" href="/admin/approve-hr/' + (obj.approval_token or '') + '/" style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none; display: inline-block; margin-right: 10px;">✓ Approve</a>' +
+                '<a class="button" href="/admin/reject-hr/' + (obj.approval_token or '') + '/" style="background: #e74c3c; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none; display: inline-block;">✗ Reject</a></p>'
+            )
+    approval_status_info.short_description = 'Approval Information'
+    
+    def get_queryset(self, request):
+        """Customize queryset to show pending approvals first"""
+        qs = super().get_queryset(request)
+        return qs.order_by('is_approved', '-approval_requested_at')
 
 @admin.register(Document, site=custom_admin)
 class DocumentAdmin(admin.ModelAdmin):

@@ -19,12 +19,21 @@ class ResendBackend(BaseEmailBackend):
     def open(self):
         """Set up Resend API key"""
         import os
+        logger.info("[RESEND-OPEN] Opening Resend email backend connection...")
+        
         self.api_key = os.environ.get('RESEND_API_KEY')
+        logger.info(f"[RESEND-OPEN] API Key from environment: {self.api_key[:10] if self.api_key else 'NOT FOUND'}...")
+        
         if not self.api_key:
-            logger.error("RESEND_API_KEY not set in environment variables")
+            logger.error("[RESEND-OPEN] ❌ RESEND_API_KEY not set in environment variables")
             if not self.fail_silently:
                 raise ValueError("RESEND_API_KEY not configured")
-        resend.api_key = self.api_key
+        
+        try:
+            resend.api_key = self.api_key
+            logger.info("[RESEND-OPEN] ✅ Resend API key configured successfully")
+        except Exception as e:
+            logger.error(f"[RESEND-OPEN] ❌ Failed to configure Resend API: {str(e)}")
         
     def close(self):
         """Close connection"""

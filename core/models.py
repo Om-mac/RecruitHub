@@ -104,11 +104,26 @@ class HRProfile(models.Model):
     company_name = models.CharField(max_length=255, blank=True)
     designation = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
+    # Approval workflow fields
+    is_approved = models.BooleanField(default=False, help_text="HR account approved by admin")
+    approval_requested_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_hr_profiles')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_token = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, help_text="Reason for rejection if applicable")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"HR Profile of {self.user.username}"
+        status = "✓ Approved" if self.is_approved else "⏳ Pending"
+        return f"HR Profile of {self.user.username} ({status})"
+    
+    def generate_approval_token(self):
+        """Generate unique approval token"""
+        import secrets
+        self.approval_token = secrets.token_urlsafe(50)
+        self.save()
+        return self.approval_token
 
 
 class EmailOTP(models.Model):

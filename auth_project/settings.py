@@ -236,6 +236,12 @@ else:
 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@vakverse.com')
 
+# Site URL for email links
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+
+# HR Approval email
+HR_APPROVAL_EMAIL = os.environ.get('HR_APPROVAL_EMAIL', 'omtapdiya75@gmail.com')
+
 # Error handling
 TEMPLATES[0]['OPTIONS']['context_processors'].append('django.template.context_processors.request')
 

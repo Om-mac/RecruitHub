@@ -46,6 +46,12 @@ A comprehensive Django-based HR recruitment management system designed for colle
 - **Test User Creation:** One-click admin action to create 10 test users (22IF001-22IF010) with complete profiles
 - **Advanced Admin Panel:** Custom styling with dark mode support
 - **User Management:** Create, edit, delete users and their profiles
+- **HR Approval Workflow:** Secure admin approval system for new HR account registrations
+  - Email notifications sent to admin (omtapdiya75@gmail.com) on HR registration
+  - One-click approval and rejection links
+  - Pending/approved status tracking
+  - Rejection reason tracking
+  - HR users cannot login until approved
 
 ## Setup
 
@@ -164,6 +170,249 @@ Each test user has:
 - ✅ Skills and experience details
 - ✅ Resume placeholder data
 
+### HR Approval Workflow
+
+RecruitHub includes a secure admin approval workflow for new HR account registrations to prevent unauthorized access.
+
+#### Complete Workflow Process:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         HR REGISTRATION WORKFLOW                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STEP 1: HR Registration
+├─ HR visits /hr/register/
+├─ Fills company name, designation, department
+├─ Provides email address
+└─ Receives OTP verification email
+
+STEP 2: Email Verification
+├─ HR enters OTP from email
+├─ Email is verified ✓
+└─ Proceeds to Step 3
+
+STEP 3: Create Account
+├─ HR sets username & password
+├─ Account created with is_approved = FALSE
+├─ Approval token generated (unique token for email links)
+├─ Success message: "Awaiting admin approval"
+├─ Redirects to HR Login page
+└─ ✉️ APPROVAL EMAIL SENT TO: omtapdiya75@gmail.com
+    ├─ HR details (username, name, company, designation)
+    ├─ APPROVE LINK: /admin/approve-hr/{token}/
+    └─ REJECT LINK: /admin/reject-hr/{token}/
+
+STEP 4A: Admin Approves (Via Email Link or Admin Panel)
+├─ Admin clicks APPROVE link in email
+│  └─ Account is_approved = TRUE
+│     approved_by = Admin user
+│     approved_at = Current timestamp
+│
+├─ OR: Admin goes to Admin Panel → HR Profiles
+│      Clicks "✓ Approve" button
+│      Account is approved with same fields
+│
+└─ ✉️ EMAIL SENT TO HR: "Your HR account has been approved!"
+    └─ HR can now login with username & password
+
+STEP 4B: Admin Rejects (Via Admin Panel)
+├─ Admin clicks "✗ Reject" button in Admin Panel
+├─ Admin provides rejection reason
+├─ HR account & user are deleted
+└─ ✉️ EMAIL SENT TO HR: "Your application was rejected"
+    └─ Rejection reason included in email
+
+STEP 5: HR Login Attempt (BEFORE Approval)
+├─ HR visits /hr/login/
+├─ Enters username & password
+├─ Credentials are valid BUT is_approved = FALSE
+├─ ❌ Login denied
+└─ Message shown: "Your HR account is pending admin approval. Please wait for verification."
+    └─ HR must wait for admin approval
+
+STEP 5: HR Login Attempt (AFTER Approval)
+├─ HR visits /hr/login/
+├─ Enters username & password
+├─ Credentials valid AND is_approved = TRUE
+├─ ✓ Login successful
+└─ Redirects to HR Dashboard
+    └─ HR can now view students, filter, sort, etc.
+```
+
+#### How It Works in Code:
+
+**Registration Summary:**
+1. User visits `/hr/register_step1/` → Enters email
+2. User visits `/hr/register_step2/` → Verifies OTP
+3. User visits `/hr/register_step3/` → Creates account
+   - HRProfile created with `is_approved=False`
+   - `approval_token` generated
+   - `send_hr_approval_email()` called
+   - Message: "Awaiting admin approval"
+   - Redirects to `/hr/login/`
+
+**Approval Process:**
+- Admin receives email with approval/rejection links
+- Admin clicks link or uses Admin Panel
+- `approve_hr_account(token)` or `reject_hr_account(token)` view processes
+- Confirmation email sent to HR
+
+**Login Check:**
+```python
+# In hr_login view:
+if user.hr_profile.is_approved == False:
+    show_error("Your HR account is pending admin approval")
+    return redirect('hr_login')
+else:
+    login(request, user)
+    return redirect('hr_dashboard')
+```
+
+#### Configuration:
+
+**Environment Variables:**
+```
+HR_APPROVAL_EMAIL=omtapdiya75@gmail.com  # Admin approval email
+SITE_URL=https://yourdomain.com          # For approval links in emails
+```
+
+**Local Testing:**
+```bash
+# Development uses Django's email backend (console output)
+# Emails are printed to terminal instead of sent
+python manage.py runserver
+
+# Check terminal for email content and approval token
+```
+
+#### API Endpoints:
+
+```
+GET  /admin/approve-hr/<token>/   # Approve HR account via token
+POST /admin/reject-hr/<token>/    # Reject and delete HR account
+```
+
+#### Step-by-Step Testing Guide:
+
+**Scenario: New HR User Registers**
+
+1. **Start Django Server:**
+   ```bash
+   python manage.py runserver
+   ```
+   - Terminal will display emails in console (no actual sending in development)
+
+2. **HR Registration - Step 1 (Email):**
+   - Visit: `http://localhost:8000/hr/register/`
+   - Click "Register" → Step 1
+   - Enter email: `john@company.com`
+   - Click "Send OTP"
+   - **✓ Check Terminal:** Email with OTP is displayed
+     ```
+     Subject: Your HR Account Verification OTP - RecruitHub
+     OTP: [6-digit code]
+     ```
+
+3. **HR Registration - Step 2 (OTP Verification):**
+   - Copy OTP from terminal
+   - Enter OTP in form
+   - Click "Verify"
+   - **✓ Success:** Message "OTP verified successfully"
+
+4. **HR Registration - Step 3 (Account Creation):**
+   - Fill details:
+     - Username: `john_hr`
+     - Password: `SecurePass123`
+     - Company: `Tech Solutions Inc`
+     - Designation: `HR Manager`
+     - Department: `Human Resources`
+   - Click "Register"
+   - **✓ Success Message:** "HR Registration successful! Awaiting admin approval"
+   - **✓ Check Terminal:** Admin approval email displayed
+     ```
+     Subject: New HR Registration - john_hr from Tech Solutions Inc
+     To: omtapdiya75@gmail.com
+     
+     New HR Account Approval Request
+     Username: john_hr
+     Name: John Doe
+     Email: john@company.com
+     Company: Tech Solutions Inc
+     Designation: HR Manager
+     Department: Human Resources
+     
+     APPROVE: http://localhost:8000/admin/approve-hr/[unique-token]/
+     REJECT: http://localhost:8000/admin/reject-hr/[unique-token]/
+     ```
+
+5. **HR Tries to Login (NOT Approved Yet):**
+   - Visit: `http://localhost:8000/hr/login/`
+   - Enter:
+     - Username: `john_hr`
+     - Password: `SecurePass123`
+   - Click "Login"
+   - **✗ Error Message:** "Your HR account is pending admin approval. Please wait for verification."
+   - **✓ Status:** HR cannot access dashboard until approved
+
+6. **Admin Approves (Option A: Via Email Link):**
+   - Copy the APPROVE URL from terminal
+   - Visit the URL in browser
+   - **✓ Success Message:** "HR account john_hr has been approved successfully"
+   - **✓ Check Terminal:** Confirmation email sent to HR
+     ```
+     Subject: Your HR Account Has Been Approved - RecruitHub
+     To: john@company.com
+     
+     Hello John,
+     Great news! Your HR account has been approved and is now active.
+     You can now log in...
+     ```
+
+7. **Admin Approves (Option B: Via Admin Panel):**
+   - Visit: `http://localhost:8000/admin/`
+   - Login as superuser
+   - Go to: **Core → HR Profiles**
+   - Find pending account (marked with "⏳ Pending" badge)
+   - Click "✓ Approve" button next to account
+   - **✓ Success:** Account is approved
+
+8. **Admin Rejects (Via Admin Panel):**
+   - Go to: **Core → HR Profiles**
+   - Find pending account
+   - Click "✗ Reject" button
+   - Fill rejection reason: "Company not registered with us"
+   - Click "Reject & Delete"
+   - **✓ User deleted permanently**
+   - **✓ Check Terminal:** Rejection email sent to HR
+     ```
+     Subject: Your HR Account Registration - RecruitHub
+     To: john@company.com
+     
+     Thank you for applying for an HR account with RecruitHub.
+     Unfortunately, your HR account registration has been rejected.
+     
+     Reason: Company not registered with us
+     ```
+
+9. **HR Tries to Login (AFTER Approval):**
+   - Visit: `http://localhost:8000/hr/login/`
+   - Enter:
+     - Username: `john_hr`
+     - Password: `SecurePass123`
+   - Click "Login"
+   - **✓ Success:** Login successful!
+   - **✓ Redirects:** HR Dashboard
+   - **✓ Message:** "Welcome HR John!"
+
+**Summary of States:**
+
+| Status | Can Login? | Message |
+|--------|-----------|---------|
+| ⏳ Pending Approval | ❌ No | "Your HR account is pending admin approval" |
+| ✓ Approved | ✅ Yes | Login successful, see dashboard |
+| ✗ Rejected | ❌ No | User deleted, no account exists |
+
 ## Database Models
 
 ### UserProfile
@@ -178,6 +427,13 @@ Each test user has:
 - Company name
 - Designation
 - Department
+- **Approval Fields:**
+  - `is_approved` - Approval status (True/False)
+  - `approval_requested_at` - Timestamp of registration
+  - `approved_by` - Admin who approved (FK to User)
+  - `approved_at` - Approval timestamp
+  - `approval_token` - Unique token for email links
+  - `rejection_reason` - Reason if rejected
 - Created/Updated timestamps
 
 ## Admin Panel

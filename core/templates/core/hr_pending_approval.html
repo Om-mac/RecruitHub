@@ -1,0 +1,123 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Pending Approval - RecruitHub HR{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Status Alert -->
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <h4 class="alert-heading">⏳ Account Pending Admin Approval</h4>
+                <p class="mb-2">
+                    Your HR account has been created and is awaiting administrator approval. 
+                    You will receive an email confirmation once your account is approved.
+                </p>
+                <hr>
+                <p class="mb-0">
+                    <strong>Submitted on:</strong> {{ hr_profile.approval_requested_at|date:"M d, Y - H:i" }}
+                </p>
+            </div>
+
+            <!-- HR Profile Information -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">👤 Your HR Account Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Full Name</h6>
+                            <p class="h5">{{ user.first_name }} {{ user.last_name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Username</h6>
+                            <p class="h5">{{ user.username }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Email</h6>
+                            <p class="h5">{{ user.email }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Status</h6>
+                            <p><span class="badge bg-warning text-dark">⏳ Pending Approval</span></p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">🏢 Company Name</h6>
+                            <p class="h5">{{ hr_profile.company_name|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">💼 Designation</h6>
+                            <p class="h5">{{ hr_profile.designation|default:"Not specified" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">📂 Department</h6>
+                            <p class="h5">{{ hr_profile.department|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">📅 Registration Date</h6>
+                            <p class="h5">{{ hr_profile.approval_requested_at|date:"M d, Y" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- What Happens Next -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📋 What Happens Next?</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-2">
+                            <strong>Admin Review:</strong> Your account information has been sent to the administrator for review.
+                        </li>
+                        <li class="mb-2">
+                            <strong>Email Verification:</strong> You will receive an email at <code>{{ user.email }}</code> when your account is approved or rejected.
+                        </li>
+                        <li class="mb-2">
+                            <strong>Dashboard Access:</strong> Once approved, you can login and access the full HR dashboard to view and filter students.
+                        </li>
+                        <li>
+                            <strong>Timeline:</strong> Typically, approvals are processed within 24-48 hours.
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Help Section -->
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">❓ Need Help?</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        If you have any questions or concerns about your registration, 
+                        please contact the administrator.
+                    </p>
+                    <p class="mb-0">
+                        <a href="{% url 'home' %}" class="btn btn-secondary">
+                            ← Back to Home
+                        </a>
+                        <a href="{% url 'hr_logout' %}" class="btn btn-danger">
+                            Logout
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -19,6 +19,97 @@ from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm
 User = get_user_model()
 logger = logging.getLogger('core')
 
+def send_hr_approval_email(hr_profile, approval_token):
+    """
+    Send HR account approval request email to admin
+    """
+    try:
+        logger.info("=" * 80)
+        logger.info("🔔 [STEP 1] send_hr_approval_email() CALLED")
+        logger.info(f"   HR Profile ID: {hr_profile.id}")
+        logger.info(f"   User: {hr_profile.user.username}")
+        logger.info("=" * 80)
+        
+        admin_email = getattr(settings, 'HR_APPROVAL_EMAIL', 'omtapdiya75@gmail.com')
+        user = hr_profile.user
+        
+        logger.info(f"[STEP 2] Email Configuration:")
+        logger.info(f"   Admin Email: {admin_email}")
+        logger.info(f"   From Email: {settings.DEFAULT_FROM_EMAIL}")
+        logger.info(f"   Backend: {settings.EMAIL_BACKEND}")
+        
+        # Generate approval and rejection URLs
+        site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        approval_url = f"{site_url}/admin/approve-hr/{approval_token}/"
+        rejection_url = f"{site_url}/admin/reject-hr/{approval_token}/"
+        
+        logger.info(f"[STEP 3] URLs Generated:")
+        logger.info(f"   Site URL: {site_url}")
+        logger.info(f"   Approval Token: {approval_token[:20]}... (truncated)")
+        logger.info(f"   Approval URL: {approval_url}")
+        logger.info(f"   Rejection URL: {rejection_url}")
+        
+        subject = f"New HR Registration - {user.username} from {hr_profile.company_name}"
+        
+        message = f"""
+New HR Account Approval Request
+
+Username: {user.username}
+Name: {user.first_name} {user.last_name}
+Email: {user.email}
+Company: {hr_profile.company_name}
+Designation: {hr_profile.designation}
+Department: {hr_profile.department}
+
+Please review and approve or reject this account:
+
+APPROVE: {approval_url}
+REJECT: {rejection_url}
+
+This is an automated email from RecruitHub Admin Panel.
+        """
+        
+        logger.info(f"[STEP 4] Email Content Prepared:")
+        logger.info(f"   Subject: {subject}")
+        logger.info(f"   To: {admin_email}")
+        logger.info(f"   From: {settings.DEFAULT_FROM_EMAIL}")
+        logger.info(f"   Message Length: {len(message)} characters")
+        
+        # Send using Django's send_mail
+        logger.info(f"[STEP 5] Calling Django send_mail()...")
+        
+        result = send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [admin_email],
+            fail_silently=False,
+        )
+        
+        logger.info(f"[STEP 6] send_mail() RETURNED: {result}")
+        
+        if result:
+            logger.info(f"✅ SUCCESS: HR approval email sent successfully!")
+            logger.info(f"   User: {user.username}")
+            logger.info(f"   To: {admin_email}")
+            logger.info(f"   Subject: {subject}")
+            logger.info("=" * 80)
+        else:
+            logger.error(f"❌ ERROR: send_mail() returned 0 (no emails sent)")
+            logger.error(f"   User: {user.username}")
+            logger.error(f"   To: {admin_email}")
+            logger.error("=" * 80)
+            
+    except Exception as e:
+        logger.error("=" * 80)
+        logger.error(f"❌ EXCEPTION: Failed to send HR approval email")
+        logger.error(f"   Exception Type: {type(e).__name__}")
+        logger.error(f"   Exception Message: {str(e)}")
+        logger.error(f"   User: {hr_profile.user.username if hr_profile else 'N/A'}")
+        logger.error("=" * 80)
+        logger.error("Full Traceback:")
+        logger.error("", exc_info=True)
+
 def home(request):
     """Home page - redirect to dashboard if logged in, else to login"""
     if request.user.is_authenticated:
@@ -168,6 +259,11 @@ def hr_login(request):
             if user is not None:
                 # Check if user has HR profile
                 if hasattr(user, 'hr_profile'):
+                    # Check if HR account is approved
+                    if not user.hr_profile.is_approved:
+                        messages.error(request, 'Your HR account is pending admin approval. Please wait for verification.')
+                        return redirect('hr_login')
+                    
                     login(request, user)
                     messages.success(request, f'Welcome HR {user.first_name}!')
                     return redirect('hr_dashboard')
@@ -311,20 +407,27 @@ def hr_register_step3_create_account(request):
             user.set_password(user_form.cleaned_data['password'])
             user.save()
             
-            # Create HR Profile
+            # Create HR Profile (NOT APPROVED by default)
             hr_profile = HRProfile.objects.create(
                 user=user,
                 company_name=request.POST.get('company_name', ''),
                 designation=request.POST.get('designation', ''),
-                department=request.POST.get('department', '')
+                department=request.POST.get('department', ''),
+                is_approved=False
             )
+            
+            # Generate approval token
+            approval_token = hr_profile.generate_approval_token()
+            
+            # Send approval email to admin
+            send_hr_approval_email(hr_profile, approval_token)
             
             # CLEAN UP: Remove OTP and session data
             EmailOTP.objects.filter(email=email).delete()
             request.session.pop('hr_registration_email', None)
             request.session.pop('hr_otp_verified', None)
             
-            messages.success(request, 'HR Registration successful! Your email has been verified. Please log in.')
+            messages.success(request, 'HR Registration successful! Your email has been verified. Awaiting admin approval.')
             return redirect('hr_login')
         else:
             for field, errors in user_form.errors.items():
@@ -337,12 +440,22 @@ def hr_register_step3_create_account(request):
 
 
 @login_required(login_url='hr_login')
+@login_required(login_url='hr_login')
 def hr_dashboard(request):
     """HR Dashboard - View and filter students"""
     # Check if user has HR profile
     if not hasattr(request.user, 'hr_profile'):
         messages.error(request, 'You do not have access to HR dashboard.')
         return redirect('dashboard')
+    
+    # Check if HR account is approved
+    if not request.user.hr_profile.is_approved:
+        # Show HR's own information and pending approval message
+        hr_profile = request.user.hr_profile
+        return render(request, 'core/hr_pending_approval.html', {
+            'hr_profile': hr_profile,
+            'user': request.user
+        })
     
     # Get all user profiles (students) - EXCLUDE HR USERS
     # Filter out users who have HR profiles
@@ -754,3 +867,136 @@ def register_step3_create_account(request):
         form = UserRegistrationForm(initial={'email': email})
     
     return render(request, 'core/register_step3_create_account.html', {'form': form, 'email': email})
+
+
+def approve_hr_account(request, token):
+    """Approve HR account via token link"""
+    try:
+        hr_profile = HRProfile.objects.get(approval_token=token)
+        
+        # Check if already approved
+        if hr_profile.is_approved:
+            messages.warning(request, 'This HR account has already been approved.')
+            return redirect('admin:index')
+        
+        # Approve the account
+        hr_profile.is_approved = True
+        hr_profile.approved_by = request.user if request.user.is_authenticated and request.user.is_superuser else None
+        hr_profile.approved_at = timezone.now()
+        hr_profile.save()
+        
+        # Send approval confirmation email to HR
+        send_approval_confirmation_email(hr_profile.user)
+        
+        messages.success(request, f'HR account {hr_profile.user.username} has been approved successfully.')
+        logger.info(f"HR account {hr_profile.user.username} approved by {request.user.username if request.user.is_authenticated else 'anonymous'}")
+        
+        return redirect('admin:index')
+    
+    except HRProfile.DoesNotExist:
+        messages.error(request, 'Invalid approval token.')
+        logger.warning(f"Invalid HR approval token: {token}")
+        return redirect('admin:index')
+
+
+def reject_hr_account(request, token):
+    """Reject HR account via token link"""
+    try:
+        hr_profile = HRProfile.objects.get(approval_token=token)
+        
+        # Check if already approved
+        if hr_profile.is_approved:
+            messages.warning(request, 'This HR account has already been approved. Cannot reject approved accounts.')
+            return redirect('admin:index')
+        
+        if request.method == 'POST':
+            rejection_reason = request.POST.get('rejection_reason', 'No reason provided')
+            
+            # Reject the account
+            hr_profile.rejection_reason = rejection_reason
+            hr_profile.save()
+            
+            # Delete the user and HR profile
+            user = hr_profile.user
+            username = user.username
+            user.delete()
+            
+            # Send rejection email
+            send_rejection_email(hr_profile.user.email, rejection_reason)
+            
+            messages.success(request, f'HR account {username} has been rejected and deleted.')
+            logger.info(f"HR account {username} rejected. Reason: {rejection_reason}")
+            
+            return redirect('admin:index')
+        
+        # GET request - show rejection form
+        return render(request, 'core/reject_hr_account.html', {'hr_profile': hr_profile})
+    
+    except HRProfile.DoesNotExist:
+        messages.error(request, 'Invalid rejection token.')
+        logger.warning(f"Invalid HR rejection token: {token}")
+        return redirect('admin:index')
+
+
+def send_approval_confirmation_email(user):
+    """Send approval confirmation email to HR user"""
+    try:
+        subject = "Your HR Account Has Been Approved - RecruitHub"
+        message = f"""
+Hello {user.first_name},
+
+Great news! Your HR account has been approved and is now active.
+
+You can now log in to your HR dashboard using your username and password:
+Username: {user.username}
+
+Login URL: {settings.SITE_URL}/hr/login/
+
+If you have any questions, please contact our support team.
+
+Best regards,
+RecruitHub Team
+        """
+        
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+        logger.info(f"HR approval confirmation email sent to {user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send approval confirmation email to {user.email}: {str(e)}")
+
+
+def send_rejection_email(email, reason):
+    """Send rejection email to HR user"""
+    try:
+        subject = "Your HR Account Registration - RecruitHub"
+        message = f"""
+Hello,
+
+Thank you for applying for an HR account with RecruitHub.
+
+Unfortunately, your HR account registration has been rejected.
+
+Reason: {reason}
+
+If you believe this is a mistake or would like more information, please contact our support team.
+
+Best regards,
+RecruitHub Team
+        """
+        
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        logger.info(f"HR rejection email sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send rejection email to {email}: {str(e)}")
+
