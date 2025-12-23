@@ -754,3 +754,100 @@ def register_step3_create_account(request):
         form = UserRegistrationForm(initial={'email': email})
     
     return render(request, 'core/register_step3_create_account.html', {'form': form, 'email': email})
+
+
+@login_required(login_url='login')
+def create_test_users(request):
+    """
+    Admin-only view to create 50 test users (22IF001 - 22IF050)
+    Accessible only to superusers via /admin/create-test-users/
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Access denied. Only superusers can create test users.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        try:
+            from faker import Faker
+            fake = Faker()
+            
+            branches = ['CSE', 'ECE', 'Mechanical', 'Civil', 'EEE', 'IT', 'Production']
+            years = ['1', '2', '3', '4']
+            genders = ['M', 'F', 'O']
+            skills_list = [
+                'Python, Java, JavaScript',
+                'Python, Django, React',
+                'Java, Spring Boot, MySQL',
+                'JavaScript, Node.js, MongoDB',
+                'C++, Data Structures, Algorithms',
+                'Python, Machine Learning, TensorFlow',
+                'Full Stack: React, Django, PostgreSQL',
+                'Backend: Node.js, Express, PostgreSQL',
+                'Mobile: Flutter, Kotlin',
+                'Web: HTML, CSS, JavaScript, Bootstrap',
+            ]
+            
+            created_count = 0
+            skipped_count = 0
+            
+            for i in range(1, 51):
+                username = f'22IF{i:03d}'
+                password = f'{username}{username}'
+                email = f'{username}@college.edu'
+                
+                # Skip if user already exists
+                if User.objects.filter(username=username).exists():
+                    skipped_count += 1
+                    continue
+                
+                # Create User
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    first_name=fake.first_name(),
+                    last_name=fake.last_name(),
+                )
+                
+                # Update UserProfile
+                profile = user.profile
+                profile.middle_name = fake.first_name()
+                profile.phone = fake.phone_number()[:15]
+                profile.date_of_birth = fake.date_of_birth(minimum_age=18, maximum_age=25)
+                profile.gender = random.choice(genders)
+                profile.address = fake.address()
+                profile.city = fake.city()
+                profile.state = fake.state()
+                profile.pincode = fake.postcode()[:10]
+                profile.college_name = 'XYZ College of Engineering'
+                profile.branch = random.choice(branches)
+                profile.degree = 'B.Tech'
+                profile.specialization = profile.branch
+                profile.cgpa = round(random.uniform(6.5, 9.2), 2)
+                profile.year_of_study = random.choice(years)
+                profile.admission_year = random.randint(2020, 2023)
+                profile.backlogs = random.randint(0, 3)
+                profile.current_backlogs = random.randint(0, 2)
+                profile.skills = random.choice(skills_list)
+                profile.github_username = fake.user_name()
+                profile.linkedin_username = fake.user_name()
+                profile.hackerrank_username = fake.user_name()
+                profile.experience = f'{random.randint(0, 3)} years of experience'
+                profile.bio = fake.text(max_nb_chars=200)
+                profile.save()
+                
+                created_count += 1
+            
+            message = f'✓ Successfully created {created_count} test users (22IF001-22IF050).'
+            if skipped_count > 0:
+                message += f' {skipped_count} users already existed and were skipped.'
+            messages.success(request, message)
+            
+        except ImportError:
+            messages.error(request, 'Faker library is not installed. Please install it first.')
+        except Exception as e:
+            messages.error(request, f'Error creating test users: {str(e)}')
+        
+        return redirect('dashboard')
+    
+    return render(request, 'core/create_test_users.html')
