@@ -133,11 +133,12 @@ class HRRegistrationForm(forms.ModelForm):
 class HRProfileForm(forms.ModelForm):
     class Meta:
         model = HRProfile
-        fields = ['company_name', 'designation', 'department']
+        fields = ['company_name', 'designation', 'department', 'admin_notes']
         widgets = {
             'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company Name'}),
             'designation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Designation'}),
             'department': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Department'}),
+            'admin_notes': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Any notes or message for admin (optional)', 'rows': 4}),
         }
 
 class UserProfileForm(forms.ModelForm):

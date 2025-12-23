@@ -104,6 +104,7 @@ class HRProfile(models.Model):
     company_name = models.CharField(max_length=255, blank=True)
     designation = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
+    admin_notes = models.TextField(blank=True, help_text="Notes/message for admin from HR applicant")
     # Approval workflow fields
     is_approved = models.BooleanField(default=False, help_text="HR account approved by admin")
     approval_requested_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
