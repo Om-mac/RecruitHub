@@ -2,6 +2,14 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
+from django.conf import settings
+
+# Conditional storage for S3
+if settings.USE_S3:
+    from storages.backends.s3boto3 import S3Boto3Storage
+    media_storage = S3Boto3Storage(location='media')
+else:
+    media_storage = None
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -16,8 +24,18 @@ class UserProfile(models.Model):
     state = models.CharField(max_length=100, blank=True)
     pincode = models.CharField(max_length=10, blank=True)
     # Files
-    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
-    resume = models.FileField(upload_to='resumes/', blank=True, null=True)
+    profile_photo = models.ImageField(
+        upload_to='profile_photos/',
+        blank=True,
+        null=True,
+        storage=media_storage if settings.USE_S3 else None
+    )
+    resume = models.FileField(
+        upload_to='resumes/',
+        blank=True,
+        null=True,
+        storage=media_storage if settings.USE_S3 else None
+    )
     # Education
     college_name = models.CharField(max_length=255, blank=True)
     branch = models.CharField(max_length=100, blank=True, help_text="Branch/Stream (e.g., CSE, ECE, Mechanical)")
@@ -57,7 +75,10 @@ def save_user_profile(sender, instance, **kwargs):
 class Document(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to='documents/')
+    file = models.FileField(
+        upload_to='documents/',
+        storage=media_storage if settings.USE_S3 else None
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
