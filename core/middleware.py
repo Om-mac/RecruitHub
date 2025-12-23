@@ -111,8 +111,8 @@ class XSSProtectionMiddleware:
     
     def __call__(self, request):
         response = self.get_response(request)
-        # Add additional XSS protection headers
+        # Add additional XSS protection headers with S3 and CDN support
         if isinstance(response, HttpResponse):
-            response['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' cdn.jsdelivr.net;"
+            response['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; img-src 'self' data: *.s3.amazonaws.com *.s3.*.amazonaws.com; font-src 'self' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com fonts.gstatic.com;"
         return response
 
