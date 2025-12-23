@@ -188,9 +188,10 @@ SECURE_HSTS_PRELOAD = not DEBUG
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_SECURITY_POLICY = {
     "default-src": ("'self'",),
-    "script-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
-    "style-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
-    "img-src": ("'self'", "data:"),
+    "script-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"),
+    "style-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"),
+    "img-src": ("'self'", "data:", "*.s3.amazonaws.com", "*.s3.*.amazonaws.com"),
+    "font-src": ("'self'", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"),
 }
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = 'Strict'
