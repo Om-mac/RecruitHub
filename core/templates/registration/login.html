@@ -59,9 +59,16 @@
                     </form>
                     
                     <div class="text-center mb-3">
-                        <a href="{% url 'password_reset_request' %}" class="text-decoration-none small">
-                            <i class="fas fa-key"></i> Forgot Password?
-                        </a>
+                        <p class="mb-2">
+                            <a href="{% url 'password_reset_request' %}" class="text-decoration-none small">
+                                <i class="fas fa-lock"></i> Forgot Password?
+                            </a>
+                        </p>
+                        <p class="mb-0">
+                            <a href="{% url 'forgot_username_student' %}" class="text-decoration-none small">
+                                <i class="fas fa-user"></i> Forgot Username?
+                            </a>
+                        </p>
                     </div>
                     
                     <hr>

@@ -43,4 +43,8 @@ urlpatterns = [
     # HR Approval URLs
     path('admin/approve-hr/<str:token>/', views.approve_hr_account, name='approve_hr_account'),
     path('admin/reject-hr/<str:token>/', views.reject_hr_account, name='reject_hr_account'),
+    
+    # Forgot Username URLs
+    path('forgot-username/', views.forgot_username_student, name='forgot_username_student'),
+    path('hr/forgot-username/', views.forgot_username_hr, name='forgot_username_hr'),
 ]

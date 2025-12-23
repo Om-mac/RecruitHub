@@ -1000,3 +1000,100 @@ RecruitHub Team
     except Exception as e:
         logger.error(f"Failed to send rejection email to {email}: {str(e)}")
 
+
+def send_username_recovery_email(email, username):
+    """Send username to user's email for recovery"""
+    try:
+        subject = "Your RecruitHub Username"
+        message = f"""
+Hello,
+
+You requested to recover your RecruitHub username.
+
+Your Username: {username}
+
+If you also need to reset your password, please use the 'Forgot Password' option on the login page.
+
+If you did not request this, please ignore this email.
+
+Best regards,
+RecruitHub Team
+        """
+        
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        logger.info(f"✅ Username recovery email sent to {email}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to send username recovery email to {email}: {str(e)}", exc_info=True)
+        return False
+
+
+def forgot_username_student(request):
+    """Student forgot username view"""
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        
+        if not email:
+            messages.error(request, 'Please enter your email address.')
+            return render(request, 'core/forgot_username.html')
+        
+        # Check if email exists for student
+        try:
+            user = User.objects.get(email=email)
+            # Send username recovery email
+            if send_username_recovery_email(email, user.username):
+                messages.success(request, f'Your username has been sent to {email}. Please check your inbox.')
+                return render(request, 'core/username_sent.html', {'email': email, 'user_type': 'Student'})
+            else:
+                messages.error(request, 'Failed to send email. Please try again later.')
+        except User.DoesNotExist:
+            # Don't reveal if email exists or not (security best practice)
+            messages.success(request, f'If an account with {email} exists, the username has been sent. Please check your inbox.')
+            return render(request, 'core/username_sent.html', {'email': email, 'user_type': 'Student'})
+        except Exception as e:
+            logger.error(f"Error in forgot_username_student: {str(e)}", exc_info=True)
+            messages.error(request, 'An error occurred. Please try again later.')
+    
+    return render(request, 'core/forgot_username.html', {'user_type': 'Student'})
+
+
+def forgot_username_hr(request):
+    """HR forgot username view"""
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        
+        if not email:
+            messages.error(request, 'Please enter your email address.')
+            return render(request, 'core/forgot_username_hr.html')
+        
+        # Check if email exists for HR
+        try:
+            user = User.objects.get(email=email)
+            # Verify user has HR profile
+            hr_profile = HRProfile.objects.filter(user=user).exists()
+            if hr_profile:
+                if send_username_recovery_email(email, user.username):
+                    messages.success(request, f'Your username has been sent to {email}. Please check your inbox.')
+                    return render(request, 'core/username_sent.html', {'email': email, 'user_type': 'HR'})
+                else:
+                    messages.error(request, 'Failed to send email. Please try again later.')
+            else:
+                # Don't reveal if HR profile exists
+                messages.success(request, f'If an HR account with {email} exists, the username has been sent. Please check your inbox.')
+                return render(request, 'core/username_sent.html', {'email': email, 'user_type': 'HR'})
+        except User.DoesNotExist:
+            # Don't reveal if email exists or not (security best practice)
+            messages.success(request, f'If an HR account with {email} exists, the username has been sent. Please check your inbox.')
+            return render(request, 'core/username_sent.html', {'email': email, 'user_type': 'HR'})
+        except Exception as e:
+            logger.error(f"Error in forgot_username_hr: {str(e)}", exc_info=True)
+            messages.error(request, 'An error occurred. Please try again later.')
+    
+    return render(request, 'core/forgot_username_hr.html', {'user_type': 'HR'})
+

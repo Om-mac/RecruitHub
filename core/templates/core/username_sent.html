@@ -1,0 +1,79 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Username Sent{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    
+                    <h2 class="text-center mb-3">Username Sent!</h2>
+                    
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-envelope"></i> Check Your Email
+                        </h5>
+                        <p class="mb-0">
+                            We've sent your username to <strong>{{ email }}</strong>
+                        </p>
+                        <hr class="my-2">
+                        <p class="mb-0">
+                            Please check your inbox (and spam folder) for the email with your username.
+                        </p>
+                    </div>
+                    
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">What's Next?</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success"></i> 
+                                    Look for an email from <code>{{ site_from_email }}</code>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success"></i> 
+                                    Check your spam/junk folder if you don't see it
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success"></i> 
+                                    Use your username to log in
+                                </li>
+                                <li>
+                                    <i class="fas fa-check text-success"></i> 
+                                    If you forgot your password, use "Forgot Password" on login page
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {% if user_type == 'HR' %}
+                            <a href="{% url 'hr_login' %}" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i> Go to HR Login
+                            </a>
+                        {% else %}
+                            <a href="{% url 'django.contrib.auth.views.login' %}" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt"></i> Go to Student Login
+                            </a>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            Didn't receive an email? 
+                            {% if user_type == 'HR' %}
+                                <a href="{% url 'forgot_username_hr' %}">Try again</a>
+                            {% else %}
+                                <a href="{% url 'forgot_username_student' %}">Try again</a>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
