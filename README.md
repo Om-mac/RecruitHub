@@ -2,23 +2,24 @@
 
 A comprehensive Django-based HR recruitment management system designed for colleges and placement cells to streamline student hiring processes.
 
-**Status:** ✅ Fully Functional | **Version:** 1.0.0 | **Python:** 3.14.0 | **Django:** 6.0
+**Status:** ✅ Fully Functional | **Version:** 1.0.0 | **Python:** 3.14.0 | **Django:** 6.0 | **Storage:** AWS S3
 
 ## Features
 
 ### Student Features
-- **User Authentication:** Secure login, logout, and password management
+- **User Authentication:** Secure login, logout, and password management with OTP verification
 - **Profile Management:** Complete student profiles with education and professional details
   - Personal information (DOB, gender, contact)
   - Academic details (branch, CGPA, backlogs, admission year)
   - Professional info (skills, experience, bio)
   - Social media links (GitHub, LinkedIn, HackerRank, etc.)
-- **Document Management:** Upload and manage resumes
+  - **Profile Photo Upload** (stored in AWS S3)
+- **Document Management:** Upload and manage resumes (AWS S3 storage)
 - **Notes System:** Create and organize personal notes
 - **Dashboard:** View profile completeness and uploaded documents
 
 ### HR Features
-- **HR Authentication:** Dedicated HR login portal
+- **HR Authentication:** Dedicated HR login portal with OTP verification
 - **Student Directory:** View all registered students with complete profiles
 - **Advanced Filtering:**
   - Filter by branch/specialization
@@ -30,7 +31,7 @@ A comprehensive Django-based HR recruitment management system designed for colle
   - Sort by name (A-Z, Z-A)
   - Sort by branch
 - **Student Details View:** 
-  - Detailed profile information
+  - Detailed profile information with profile photos
   - Social media links and platform usernames
   - Direct access to GitHub, LinkedIn, HackerRank profiles
   - Download resumes
@@ -41,18 +42,24 @@ A comprehensive Django-based HR recruitment management system designed for colle
   - Zero backlog count
   - Branch distribution
 
+### Admin Features
+- **Test User Creation:** One-click admin action to create 10 test users (22IF001-22IF010) with complete profiles
+- **Advanced Admin Panel:** Custom styling with dark mode support
+- **User Management:** Create, edit, delete users and their profiles
+
 ## Setup
 
 ### Prerequisites
 - Python 3.8+
 - Django 6.0
-- SQLite (default)
+- PostgreSQL (production) or SQLite (development)
+- AWS S3 Bucket (optional, for cloud file storage)
 
 ### Installation
 
 1. **Install Dependencies:**
    ```bash
-   pip install django pillow
+   pip install -r requirements.txt
    ```
 
 2. **Run Migrations:**
@@ -67,38 +74,42 @@ A comprehensive Django-based HR recruitment management system designed for colle
 
 4. **Create Test HR Account:**
    ```bash
-   bash create_test_hr.sh
-   ```
-   
-   Or manually in Django shell:
-   ```bash
-   python manage.py shell
-   ```
-   
-   ```python
-   from django.contrib.auth.models import User
-   from core.models import HRProfile
-   
-   user = User.objects.create_user(
-       username='hr_admin',
-       email='hr@example.com',
-       password='hr123456',
-       first_name='HR',
-       last_name='Admin'
-   )
-   
-   HRProfile.objects.create(
-       user=user,
-       company_name='Your Company',
-       designation='HR Manager',
-       department='Human Resources'
-   )
+   python manage.py create_hr_user
    ```
 
 5. **Run Server:**
    ```bash
    python manage.py runserver
    ```
+
+### AWS S3 Configuration (Optional)
+
+To enable cloud storage for resumes, profile photos, and documents:
+
+1. **Create AWS S3 Bucket:**
+   - Go to AWS Console → S3
+   - Create a new bucket (e.g., `recruithub-amzn-bucket`)
+   - Disable "Block all public access"
+   - Add bucket policy for public read access
+
+2. **Set Environment Variables on Render/Production:**
+   ```
+   USE_S3=true
+   AWS_ACCESS_KEY_ID=your_access_key
+   AWS_SECRET_ACCESS_KEY=your_secret_key
+   AWS_STORAGE_BUCKET_NAME=your_bucket_name
+   AWS_S3_REGION_NAME=eu-north-1  (your region)
+   ```
+
+3. **Local Development (Optional):**
+   ```bash
+   # Create .env file
+   USE_S3=false  # Use local /media/ folder
+   ```
+
+Files will be stored in:
+- **Without S3:** `/media/` folder on server
+- **With S3:** `s3://your-bucket/media/` in AWS cloud
 
 ## Usage
 
@@ -130,13 +141,28 @@ A comprehensive Django-based HR recruitment management system designed for colle
    - View skills, certifications, and experience
 
 ### Test Student Accounts
-Pre-created dummy students in format: `22[BRANCH][###]`
-- **Branch Codes:** CS (Computer Science), IF (IT), EE (Electrical), CE (Civil), ME (Mechanical)
-- **Examples:**
-  - Username: `22CS001` | Password: `22CS00122CS001`
-  - Username: `22IT020` | Password: `22IT02022IT020`
-  - Username: `22EE010` | Password: `22EE01022EE010`
-- **Total Students Created:** 200+ across all branches
+Pre-created dummy students in format: `22IF[###]`
+- **Username:** `22IF001` → `22IF010`
+- **Password:** `22IF001` + `22IF001` = `22IF00122IF001` (username repeated)
+- **Email:** `22IF001@college.edu` → `22IF010@college.edu`
+- **Total Test Users:** 10 (created via admin action or management command)
+
+#### Creating Test Users via Admin Panel:
+1. Go to `https://yourdomain.com/admintapdiyaom/core/userprofile/`
+2. At bottom, select Action: **"⚡ Create 10 Test Users"**
+3. Click **"Go"** - Users created instantly with complete profiles
+
+#### Creating Test Users via Command Line:
+```bash
+python manage.py create_50_users  # Creates 10 users (can be modified in code)
+```
+
+Each test user has:
+- ✅ Complete profile with realistic fake data
+- ✅ CGPA between 6.5 - 9.2
+- ✅ Random branch assignment
+- ✅ Skills and experience details
+- ✅ Resume placeholder data
 
 ## Database Models
 
@@ -326,10 +352,13 @@ Password: hr123456
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Django 6.0, Python 3.14 |
-| **Database** | SQLite3 |
+| **Database** | PostgreSQL (prod), SQLite3 (dev) |
 | **Frontend** | Bootstrap 5.3, Vanilla JS |
+| **File Storage** | AWS S3 (cloud) / Local media/ (dev) |
 | **Images** | Pillow 10.0+ |
-| **Server** | Django Development Server |
+| **OTP Verification** | Django Email Backend (Resend) |
+| **Server** | Gunicorn + Render / Django Dev Server |
+| **Styling** | Custom CSS + Bootstrap 5.3 |
 
 ---
 
