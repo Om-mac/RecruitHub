@@ -39,7 +39,4 @@ urlpatterns = [
     path('hr/dashboard/', views.hr_dashboard, name='hr_dashboard'),
     path('hr/student/<int:user_id>/', views.student_detail, name='student_detail'),
     path('hr/logout/', views.hr_logout, name='hr_logout'),
-    
-    # Admin utility
-    path('admin/create-test-users/', views.create_test_users, name='create_test_users'),
 ]
