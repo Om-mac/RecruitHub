@@ -218,10 +218,10 @@ class NoteAdmin(admin.ModelAdmin):
     list_display = ['title_display', 'user_badge', 'word_count_badge', 'created_at']
     search_fields = ['title', 'user__username']
     list_filter = ['created_at']
-    readonly_fields = ('user', 'created_at', 'updated_at')
+    readonly_fields = ('user', 'created_at')
     
     fieldsets = (
-        ('Note Info', {'fields': ('user', 'title', 'created_at', 'updated_at')}),
+        ('Note Info', {'fields': ('user', 'title', 'created_at')}),
         ('Content', {'fields': ('content',)}),
     )
     
