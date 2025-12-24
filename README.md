@@ -1,761 +1,573 @@
 # 🎓 RecruitHub - Campus Recruitment Portal
 
-A comprehensive Django-based HR recruitment management system designed for colleges and placement cells to streamline student hiring processes.
+A comprehensive Django-based HR recruitment management system designed for colleges and placement cells to streamline student hiring processes with proper account type separation and security.
 
-**Status:** ✅ Fully Functional | **Version:** 1.0.0 | **Python:** 3.14.0 | **Django:** 6.0 | **Storage:** AWS S3
+**Status:** ✅ Production Ready | **Version:** 2.0.0 | **Python:** 3.13 | **Django:** 6.0 | **Database:** PostgreSQL (Render) | **Hosting:** Render.com
+
+---
+
+## 📋 Table of Contents
+1. [System Architecture](#system-architecture)
+2. [Account Types & Separation](#account-types--separation)
+3. [Features](#features)
+4. [Registration Flows](#registration-flows)
+5. [Security Implementation](#security-implementation)
+6. [Admin Interface](#admin-interface)
+7. [Deployment](#deployment)
+8. [Recent Fixes & Improvements](#recent-fixes--improvements)
+
+---
+
+## System Architecture
+
+### Account Type Separation
+
+RecruitHub implements **strict account type separation** to prevent unauthorized access:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Django User Account                      │
+├─────────────────────────────────────────────────────────────┤
+│ is_superuser=False │ is_staff=False │ Has OneToOne Profile  │
+│    is_staff=False  │                │      ↓                │
+│                    ├─→ STUDENT      │  UserProfile          │
+│                    │   (Regular User)│  (Student Data)       │
+│                    │                │                       │
+│    is_staff=True   │ Has OneToOne    │      ↓                │
+│                    ├─→ HR ACCOUNT   │  HRProfile            │
+│                    │ (Recruiters)    │  (Company & Status)   │
+│                    │                │                       │
+│  is_superuser=True ├─→ ADMIN        │  No Profile           │
+│   is_staff=True    │ (Management)    │  (Full Access)        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Database Models
+
+**UserProfile** (Students)
+- Personal: name, email, DOB, phone, address
+- Education: branch, CGPA, backlogs, admission year, degree
+- Professional: skills, experience, resume, bio
+- Social: GitHub, LinkedIn, HackerRank usernames
+- Media: profile_photo (AWS S3), resume (AWS S3)
+
+**HRProfile** (Recruiters)
+- Company details: name, designation, department
+- Admin notes and approval status
+- Approval workflow: requested_at, approved_by, approved_at
+- Approval token for email verification
+
+**EmailOTP**
+- Stores OTP for email verification during registration
+- Validates email ownership before account creation
+
+---
+
+## Account Types & Separation
+
+### 1. **STUDENT ACCOUNTS** (Regular Users)
+- **is_superuser:** False
+- **is_staff:** False
+- **Has Profile:** UserProfile (contains academic & professional data)
+- **Permissions:** Can view own profile, upload resume, manage documents
+- **Login:** `/accounts/login/` (Student Login)
+
+**Blocked from:**
+- Accessing HR features
+- Viewing other student data
+- Admin panel
+
+### 2. **HR ACCOUNTS** (Recruiters)
+- **is_superuser:** False
+- **is_staff:** True (marked as staff to prevent student profile creation)
+- **Has Profile:** HRProfile (contains company & approval status)
+- **Permissions:** Can view filtered student directory, approve student hiring
+- **Login:** `/hr/login/` (Dedicated HR Login)
+- **Requirements:** Email verification + Admin approval before access
+
+**Key Features:**
+- Dashboard with student filtering and sorting
+- View detailed student profiles
+- Download student resumes
+
+### 3. **ADMIN ACCOUNTS** (Management)
+- **is_superuser:** True
+- **is_staff:** True
+- **Has Profile:** None (no student or HR profile)
+- **Permissions:** Full system access, user management, HR approval
+- **Login:** `/admintapdiyaom/` (Django Admin)
+- **Auto-created:** From environment variables on first deployment
+
+**Key Features:**
+- Approve/reject HR account registrations
+- Manage all users and profiles
+- View system statistics
+- Configure system settings
+
+---
 
 ## Features
 
-### Student Features
-- **User Authentication:** Secure login, logout, and password management with OTP verification
-- **Profile Management:** Complete student profiles with education and professional details
-  - Personal information (DOB, gender, contact)
-  - Academic details (branch, CGPA, backlogs, admission year)
-  - Professional info (skills, experience, bio)
-  - Social media links (GitHub, LinkedIn, HackerRank, etc.)
-  - **Profile Photo Upload** (stored in AWS S3)
-- **Document Management:** Upload and manage resumes (AWS S3 storage)
-- **Notes System:** Create and organize personal notes
-- **Dashboard:** View profile completeness and uploaded documents
+### 🎓 Student Features
 
-### HR Features
-- **HR Authentication:** Dedicated HR login portal with OTP verification
-- **Student Directory:** View all registered students with complete profiles
-- **Advanced Filtering:**
-  - Filter by branch/specialization
-  - Filter by CGPA range (min/max)
-  - Filter by backlogs (current)
-- **Sorting Options:**
-  - Sort by CGPA (high to low, low to high)
-  - Sort by backlogs
-  - Sort by name (A-Z, Z-A)
-  - Sort by branch
-- **Student Details View:** 
-  - Detailed profile information with profile photos
-  - Social media links and platform usernames
-  - Direct access to GitHub, LinkedIn, HackerRank profiles
-  - Download resumes
-  - Skills, certifications, and experience details
-- **Dashboard Statistics:** 
-  - Total students count
-  - Average CGPA
-  - Zero backlog count
-  - Branch distribution
+#### Authentication & Registration
+- **Secure Registration:** OTP-based email verification (3-step process)
+  - Step 1: Enter email → Receive OTP
+  - Step 2: Verify OTP → Email confirmed
+  - Step 3: Create account → Account active immediately
+- **Login:** Blocked for HR/Admin accounts (must use HR or Admin login)
+- **Password Management:**
+  - Forgot password → OTP verification → Reset password
+  - Change password (authenticated users only)
 
-### Admin Features
-- **Test User Creation:** One-click admin action to create 10 test users (22IF001-22IF010) with complete profiles
-- **Advanced Admin Panel:** Custom styling with dark mode support
-- **User Management:** Create, edit, delete users and their profiles
-- **HR Approval Workflow:** Secure admin approval system for new HR account registrations
-  - Email notifications sent to admin (omtapdiya75@gmail.com) on HR registration
-  - One-click approval and rejection links
-  - Pending/approved status tracking
-  - Rejection reason tracking
-  - HR users cannot login until approved
+#### Profile Management
+- Complete academic profile with CGPA and backlogs tracking
+- Professional information (skills, experience, bio)
+- Social media links (GitHub, LinkedIn, HackerRank, etc.)
+- Profile photo upload (AWS S3)
+- Resume upload (AWS S3)
+- Dashboard showing profile completeness
 
-## Setup
+#### Document Management
+- Upload multiple resumes
+- View uploaded documents
+- Track upload dates and file sizes
 
-### Prerequisites
-- Python 3.8+
-- Django 6.0
-- PostgreSQL (production) or SQLite (development)
-- AWS S3 Bucket (optional, for cloud file storage)
+#### Notes System
+- Create personal notes
+- Edit and delete notes
+- Organize thoughts and reminders
 
-### Installation
+### 👔 HR Features
 
-1. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+#### Authentication & Registration
+- **Dedicated HR Login:** Separate login page from students
+- **HR Registration:** OTP-based 3-step registration
+  - Step 1: Email verification
+  - Step 2: OTP confirmation
+  - Step 3: Account creation (marked as is_staff=True)
+- **Approval Workflow:** 
+  - Admin receives email with approval link
+  - HR cannot access dashboard until approved
+  - Shows "Pending Approval" message until admin action
 
-2. **Run Migrations:**
-   ```bash
-   python manage.py migrate
-   ```
+#### Student Directory
+- **View All Students:** Browse complete student profiles
+- **Filter By:**
+  - Branch/specialization
+  - CGPA range (min/max)
+  - Backlogs count (≤ specified number)
+- **Sort By:**
+  - CGPA (high→low, low→high)
+  - Backlogs (ascending/descending)
+  - Name (A→Z, Z→A)
+  - Branch (alphabetical)
 
-3. **Create Superuser:**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-4. **Create Test HR Account:**
-   ```bash
-   python manage.py create_hr_user
-   ```
-
-5. **Run Server:**
-   ```bash
-   python manage.py runserver
-   ```
-
-### AWS S3 Configuration (Optional)
-
-To enable cloud storage for resumes, profile photos, and documents:
-
-1. **Create AWS S3 Bucket:**
-   - Go to AWS Console → S3
-   - Create a new bucket (e.g., `recruithub-amzn-bucket`)
-   - Disable "Block all public access"
-   - Add bucket policy for public read access
-
-2. **Set Environment Variables on Render/Production:**
-   ```
-   USE_S3=true
-   AWS_ACCESS_KEY_ID=your_access_key
-   AWS_SECRET_ACCESS_KEY=your_secret_key
-   AWS_STORAGE_BUCKET_NAME=your_bucket_name
-   AWS_S3_REGION_NAME=eu-north-1  (your region)
-   ```
-
-3. **Local Development (Optional):**
-   ```bash
-   # Create .env file
-   USE_S3=false  # Use local /media/ folder
-   ```
-
-Files will be stored in:
-- **Without S3:** `/media/` folder on server
-- **With S3:** `s3://your-bucket/media/` in AWS cloud
-
-## Usage
-
-### Student Portal
-1. **Register:** Visit `http://127.0.0.1:8000/register/`
-2. **Login:** Visit `http://127.0.0.1:8000/login/`
-3. **Update Profile:** Go to Profile section and fill in your details
-   - Add your branch, CGPA, backlogs
-   - Add GitHub, LinkedIn, and other social media usernames
-   - Upload your resume
-4. **Dashboard:** View your profile and uploaded documents
-
-### HR Portal
-1. **Login:** Visit `http://127.0.0.1:8000/hr/login/`
-   - **Test Credentials:**
-     - Username: `hr_admin`
-     - Password: `hr123456`
-
-2. **Dashboard Features:**
-   - View all students in the system
-   - Apply filters (branch, CGPA range, backlogs)
-   - Sort results by various criteria
-   - See statistics (total students, avg CGPA, etc.)
-
-3. **Student Details:**
-   - Click "View" on any student to see full profile
-   - Access direct links to GitHub, LinkedIn, HackerRank
-   - Download resumes
-   - View skills, certifications, and experience
-
-### Test Student Accounts
-Pre-created dummy students in format: `22IF[###]`
-- **Username:** `22IF001` → `22IF010`
-- **Password:** `22IF001` + `22IF001` = `22IF00122IF001` (username repeated)
-- **Email:** `22IF001@college.edu` → `22IF010@college.edu`
-- **Total Test Users:** 10 (created via admin action or management command)
-
-#### Creating Test Users via Admin Panel:
-1. Go to `https://yourdomain.com/admintapdiyaom/core/userprofile/`
-2. At bottom, select Action: **"⚡ Create 10 Test Users"**
-3. Click **"Go"** - Users created instantly with complete profiles
-
-#### Creating Test Users via Command Line:
-```bash
-python manage.py create_50_users  # Creates 10 users (can be modified in code)
-```
-
-Each test user has:
-- ✅ Complete profile with realistic fake data
-- ✅ CGPA between 6.5 - 9.2
-- ✅ Random branch assignment
-- ✅ Skills and experience details
-- ✅ Resume placeholder data
-
-### HR Approval Workflow
-
-RecruitHub includes a secure admin approval workflow for new HR account registrations to prevent unauthorized access.
-
-#### Complete Workflow Process:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         HR REGISTRATION WORKFLOW                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-STEP 1: HR Registration
-├─ HR visits /hr/register/
-├─ Fills company name, designation, department
-├─ Provides email address
-└─ Receives OTP verification email
-
-STEP 2: Email Verification
-├─ HR enters OTP from email
-├─ Email is verified ✓
-└─ Proceeds to Step 3
-
-STEP 3: Create Account
-├─ HR sets username & password
-├─ Account created with is_approved = FALSE
-├─ Approval token generated (unique token for email links)
-├─ Success message: "Awaiting admin approval"
-├─ Redirects to HR Login page
-└─ ✉️ APPROVAL EMAIL SENT TO: omtapdiya75@gmail.com
-    ├─ HR details (username, name, company, designation)
-    ├─ APPROVE LINK: /admin/approve-hr/{token}/
-    └─ REJECT LINK: /admin/reject-hr/{token}/
-
-STEP 4A: Admin Approves (Via Email Link or Admin Panel)
-├─ Admin clicks APPROVE link in email
-│  └─ Account is_approved = TRUE
-│     approved_by = Admin user
-│     approved_at = Current timestamp
-│
-├─ OR: Admin goes to Admin Panel → HR Profiles
-│      Clicks "✓ Approve" button
-│      Account is approved with same fields
-│
-└─ ✉️ EMAIL SENT TO HR: "Your HR account has been approved!"
-    └─ HR can now login with username & password
-
-STEP 4B: Admin Rejects (Via Admin Panel)
-├─ Admin clicks "✗ Reject" button in Admin Panel
-├─ Admin provides rejection reason
-├─ HR account & user are deleted
-└─ ✉️ EMAIL SENT TO HR: "Your application was rejected"
-    └─ Rejection reason included in email
-
-STEP 5: HR Login Attempt (BEFORE Approval)
-├─ HR visits /hr/login/
-├─ Enters username & password
-├─ Credentials are valid BUT is_approved = FALSE
-├─ ❌ Login denied
-└─ Message shown: "Your HR account is pending admin approval. Please wait for verification."
-    └─ HR must wait for admin approval
-
-STEP 5: HR Login Attempt (AFTER Approval)
-├─ HR visits /hr/login/
-├─ Enters username & password
-├─ Credentials valid AND is_approved = TRUE
-├─ ✓ Login successful
-└─ Redirects to HR Dashboard
-    └─ HR can now view students, filter, sort, etc.
-```
-
-#### How It Works in Code:
-
-**Registration Summary:**
-1. User visits `/hr/register_step1/` → Enters email
-2. User visits `/hr/register_step2/` → Verifies OTP
-3. User visits `/hr/register_step3/` → Creates account
-   - HRProfile created with `is_approved=False`
-   - `approval_token` generated
-   - `send_hr_approval_email()` called
-   - Message: "Awaiting admin approval"
-   - Redirects to `/hr/login/`
-
-**Approval Process:**
-- Admin receives email with approval/rejection links
-- Admin clicks link or uses Admin Panel
-- `approve_hr_account(token)` or `reject_hr_account(token)` view processes
-- Confirmation email sent to HR
-
-**Login Check:**
-```python
-# In hr_login view:
-if user.hr_profile.is_approved == False:
-    show_error("Your HR account is pending admin approval")
-    return redirect('hr_login')
-else:
-    login(request, user)
-    return redirect('hr_dashboard')
-```
-
-#### Configuration:
-
-**Environment Variables:**
-```
-HR_APPROVAL_EMAIL=omtapdiya75@gmail.com  # Admin approval email
-SITE_URL=https://yourdomain.com          # For approval links in emails
-```
-
-**Local Testing:**
-```bash
-# Development uses Django's email backend (console output)
-# Emails are printed to terminal instead of sent
-python manage.py runserver
-
-# Check terminal for email content and approval token
-```
-
-#### API Endpoints:
-
-```
-GET  /admin/approve-hr/<token>/   # Approve HR account via token
-POST /admin/reject-hr/<token>/    # Reject and delete HR account
-```
-
-#### Step-by-Step Testing Guide:
-
-**Scenario: New HR User Registers**
-
-1. **Start Django Server:**
-   ```bash
-   python manage.py runserver
-   ```
-   - Terminal will display emails in console (no actual sending in development)
-
-2. **HR Registration - Step 1 (Email):**
-   - Visit: `http://localhost:8000/hr/register/`
-   - Click "Register" → Step 1
-   - Enter email: `john@company.com`
-   - Click "Send OTP"
-   - **✓ Check Terminal:** Email with OTP is displayed
-     ```
-     Subject: Your HR Account Verification OTP - RecruitHub
-     OTP: [6-digit code]
-     ```
-
-3. **HR Registration - Step 2 (OTP Verification):**
-   - Copy OTP from terminal
-   - Enter OTP in form
-   - Click "Verify"
-   - **✓ Success:** Message "OTP verified successfully"
-
-4. **HR Registration - Step 3 (Account Creation):**
-   - Fill details:
-     - Username: `john_hr`
-     - Password: `SecurePass123`
-     - Company: `Tech Solutions Inc`
-     - Designation: `HR Manager`
-     - Department: `Human Resources`
-   - Click "Register"
-   - **✓ Success Message:** "HR Registration successful! Awaiting admin approval"
-   - **✓ Check Terminal:** Admin approval email displayed
-     ```
-     Subject: New HR Registration - john_hr from Tech Solutions Inc
-     To: omtapdiya75@gmail.com
-     
-     New HR Account Approval Request
-     Username: john_hr
-     Name: John Doe
-     Email: john@company.com
-     Company: Tech Solutions Inc
-     Designation: HR Manager
-     Department: Human Resources
-     
-     APPROVE: http://localhost:8000/admin/approve-hr/[unique-token]/
-     REJECT: http://localhost:8000/admin/reject-hr/[unique-token]/
-     ```
-
-5. **HR Tries to Login (NOT Approved Yet):**
-   - Visit: `http://localhost:8000/hr/login/`
-   - Enter:
-     - Username: `john_hr`
-     - Password: `SecurePass123`
-   - Click "Login"
-   - **✗ Error Message:** "Your HR account is pending admin approval. Please wait for verification."
-   - **✓ Status:** HR cannot access dashboard until approved
-
-6. **Admin Approves (Option A: Via Email Link):**
-   - Copy the APPROVE URL from terminal
-   - Visit the URL in browser
-   - **✓ Success Message:** "HR account john_hr has been approved successfully"
-   - **✓ Check Terminal:** Confirmation email sent to HR
-     ```
-     Subject: Your HR Account Has Been Approved - RecruitHub
-     To: john@company.com
-     
-     Hello John,
-     Great news! Your HR account has been approved and is now active.
-     You can now log in...
-     ```
-
-7. **Admin Approves (Option B: Via Admin Panel):**
-   - Visit: `http://localhost:8000/admin/`
-   - Login as superuser
-   - Go to: **Core → HR Profiles**
-   - Find pending account (marked with "⏳ Pending" badge)
-   - Click "✓ Approve" button next to account
-   - **✓ Success:** Account is approved
-
-8. **Admin Rejects (Via Admin Panel):**
-   - Go to: **Core → HR Profiles**
-   - Find pending account
-   - Click "✗ Reject" button
-   - Fill rejection reason: "Company not registered with us"
-   - Click "Reject & Delete"
-   - **✓ User deleted permanently**
-   - **✓ Check Terminal:** Rejection email sent to HR
-     ```
-     Subject: Your HR Account Registration - RecruitHub
-     To: john@company.com
-     
-     Thank you for applying for an HR account with RecruitHub.
-     Unfortunately, your HR account registration has been rejected.
-     
-     Reason: Company not registered with us
-     ```
-
-9. **HR Tries to Login (AFTER Approval):**
-   - Visit: `http://localhost:8000/hr/login/`
-   - Enter:
-     - Username: `john_hr`
-     - Password: `SecurePass123`
-   - Click "Login"
-   - **✓ Success:** Login successful!
-   - **✓ Redirects:** HR Dashboard
-   - **✓ Message:** "Welcome HR John!"
-
-**Summary of States:**
-
-| Status | Can Login? | Message |
-|--------|-----------|---------|
-| ⏳ Pending Approval | ❌ No | "Your HR account is pending admin approval" |
-| ✓ Approved | ✅ Yes | Login successful, see dashboard |
-| ✗ Rejected | ❌ No | User deleted, no account exists |
-
-## Database Models
-
-### UserProfile
-- Personal details (name, phone, DOB, gender)
-- Address information
+#### Student Details
+- View complete student profile
 - Profile photo and resume
-- Education details (**branch**, degree, CGPA, backlogs)
-- Professional info (skills, experience, bio)
-- Social media usernames
+- Skills and certifications
+- Experience and bio
+- Contact information
+- Social media profiles with direct links
+- Download resume functionality
 
-### HRProfile
-- Company name
-- Designation
-- Department
-- **Approval Fields:**
-  - `is_approved` - Approval status (True/False)
-  - `approval_requested_at` - Timestamp of registration
-  - `approved_by` - Admin who approved (FK to User)
-  - `approved_at` - Approval timestamp
-  - `approval_token` - Unique token for email links
-  - `rejection_reason` - Reason if rejected
-- Created/Updated timestamps
+### ⚙️ Admin Features
 
-## Admin Panel
-- Access at `http://127.0.0.1:8000/admin/`
-- Create, edit, and manage users
-- Manage student profiles
-- View HR accounts
-- Manage documents and notes
+#### Dashboard
+- Custom styling with brand colors
+- Quick access to all management functions
+- Statistics and system overview
+
+#### User Management
+- Create, edit, delete users
+- Manage student and HR profiles
+- View user activity and last login
+
+#### HR Approval Workflow
+- Bulk approve/reject HR registrations
+- View pending HR account requests
+- Automatic email notification on HR registration
+- Approval status tracking with timestamps
+- Admin notes and rejection reasons
+
+#### System Configuration
+- Manage environment variables
+- Database management
+- Email configuration
+- AWS S3 storage settings
+
+---
+
+## Registration Flows
+
+### Student Registration Flow
+```
+1. Click "Register"
+   ↓
+2. Enter Email → Receive OTP (email)
+   ↓
+3. Enter OTP → Verify (OTP valid for 10 minutes)
+   ↓
+4. Create Account (username + password)
+   ↓
+5. Auto-create UserProfile (student profile)
+   ↓
+6. Account Active → Can Login Immediately
+```
+
+### HR Registration Flow
+```
+1. Click "Register as HR"
+   ↓
+2. Enter Email → Receive OTP (email)
+   ↓
+3. Enter OTP → Verify Email
+   ↓
+4. Create Account (username + password)
+   ↓
+5. Set is_staff=True (prevent student profile creation)
+   ↓
+6. Delete any UserProfile (if auto-created)
+   ↓
+7. Create HRProfile (is_approved=False by default)
+   ↓
+8. Send Admin Approval Email
+   ↓
+9. Show "Pending Approval" until admin approves
+   ↓
+10. Admin Approves → HR Gets Dashboard Access
+```
+
+### Admin Account Creation
+```
+Environment Variables:
+- DJANGO_SUPERUSER_USERNAME=tapdiyaom
+- DJANGO_SUPERUSER_EMAIL=tapdiya75@gmail.com
+- DJANGO_SUPERUSER_PASSWORD=***
+
+On First Deployment:
+↓
+Django Initialization Script Runs
+↓
+Checks for Superuser
+↓
+If Not Exists → Creates Superuser from Env Vars
+↓
+Removes UserProfile if Created (signal handler)
+↓
+Admin Account Ready
+```
+
+---
+
+## Security Implementation
+
+### Account Type Protection
+
+#### 1. **Signal-Based Profile Creation**
+```python
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    # Only create UserProfile for non-staff, non-superuser accounts
+    if created and not instance.is_staff and not instance.is_superuser:
+        UserProfile.objects.get_or_create(user=instance)
+    
+    # Auto-cleanup: Remove UserProfile if user becomes staff/superuser
+    if not created and (instance.is_staff or instance.is_superuser):
+        UserProfile.objects.filter(user=instance).delete()
+```
+
+#### 2. **Student Login Blocking**
+- Custom `StudentLoginView` prevents HR/Admin from student login
+- Checks `is_staff` and `is_superuser` flags before login
+- Shows error: "HR and Staff accounts must use the HR login page"
+- Blocks early (before session creation)
+
+#### 3. **HR Login Verification**
+- Checks for `hr_profile` existence
+- Verifies `is_approved` status
+- Shows "Pending Approval" if not approved
+- Only approved HR can access dashboard
+
+#### 4. **HR Dashboard Protection**
+- Checks `hr_profile` existence and approval status
+- Excludes staff/superuser accounts from student list
+- Prevents HR from accessing admin/student data
+- Student detail view validates user type
+
+### Data Filtering
+
+#### Admin Interface
+- **UserProfileAdmin:** Excludes `is_staff=True` and `is_superuser=True`
+- **HRProfileAdmin:** Shows all HR profiles (pending and approved)
+- **UserAdmin:** Filters to show only non-staff accounts
+
+#### Views & Templates
+- HR dashboard: `exclude(user__is_staff=True).exclude(user__is_superuser=True)`
+- Student detail: Validates `not is_staff and not is_superuser`
+- Prevents unauthorized data access through direct URLs
+
+### Email Verification
+- OTP-based verification for registration and password reset
+- Time-limited tokens (10 minutes)
+- Attempt limiting on OTP entries
+- Prevents account takeover through email hijacking
+
+### Password Security
+- Django's `set_password()` (PBKDF2-SHA256 hashing)
+- Secure password reset flow with OTP
+- Change password requires old password verification
+- Session-based authentication
+
+---
+
+## Admin Interface
+
+### Custom Admin Site
+- **URL:** `/admintapdiyaom/` (security through obscurity)
+- **Styling:** Custom CSS with brand colors
+- **Header:** "🎓 RecruitHub Admin Dashboard"
+- **Features:** Dark mode support, responsive design
+
+### Admin Sections
+
+#### 1. **User Management**
+- List all regular users (students)
+- Filters: branch, degree, gender, CGPA
+- Search: username, email, name
+- Actions: Edit, delete
+
+#### 2. **User Profiles (Students)**
+- Displays student profiles
+- Filtered to exclude staff/admin
+- Readonly: user, created_at
+- Editable: all profile fields
+- Search by username, email, branch, skills
+
+#### 3. **HR Profiles (Recruiters)**
+- List all HR account registrations
+- Status badges: ✓ Approved / ⏳ Pending
+- Bulk actions: Approve / Reject
+- Filters: Approval status, department, dates
+- Search: username, company, designation
+- Auto-counts total HR profiles in database
+
+#### 4. **Documents**
+- List uploaded resumes/documents
+- Filter by upload date
+- View file type and size
+- Download functionality
+
+#### 5. **Email OTP**
+- Track OTP verifications
+- View attempt counts
+- Manage OTP records
+
+---
+
+## Recent Fixes & Improvements
+
+### Session: December 24, 2025
+
+#### ✅ Database Cleanup
+- Reset PostgreSQL database on Render to clean slate
+- Removed stale user data from previous deployments
+- Initialized fresh with superuser creation from env vars
+
+#### ✅ Admin Interface Fixes
+- **Fixed 500 Error:** Removed `approval_status_info` method from readonly_fields
+- **Fixed queryset N+1:** Added `select_related('user')` for efficiency
+- **Fixed sorting:** Changed from `-approval_requested_at` to `-created_at` (avoid NULL sorting)
+- **Fixed HTML rendering:** Changed `format_html()` to `mark_safe()` for strings without placeholders
+
+#### ✅ Account Type Separation
+- **Fixed superuser profile creation:** Modified signal to exclude staff/superuser
+- **Auto-cleanup:** Signal now removes UserProfile if user becomes staff/superuser
+- **Cleanup script:** Added `cleanup_admin_profiles.py` for manual cleanup of stale profiles
+- **HR registration fix:** Mark user as `is_staff=True` before save, delete UserProfile afterward
+
+#### ✅ Login Security
+- **Created StudentLoginView:** Custom view blocks HR/Admin from student login
+- **Form validation:** Uses `form_valid()` to check user type before session creation
+- **Error messaging:** Clear direction to use HR/Admin login pages
+- **Early blocking:** Prevents authentication before login redirect
+
+#### ✅ HR Account Features
+- **HR Profile Display:** Fixed queryset to show all registered HR accounts
+- **Bulk Actions:** Added approve/reject actions for HR profiles
+- **Debug Logging:** Added total HR profile count to admin changelist
+- **Approval Workflow:** Timestamps and admin tracking
+
+#### ✅ Data Visibility
+- **HR Dashboard:** Excludes admin/staff from student list
+- **Student Detail:** Validates user type before showing profile
+- **Admin Filters:** Properly exclude staff accounts from student listings
+- **List Display:** Badge-based status indicators for approval
+
+---
+
+## Deployment
+
+### Environment Variables (Required)
+```bash
+# Database
+DATABASE_URL=postgresql://user:password@host:port/dbname
+
+# Django Security
+SECRET_KEY=your-secret-key
+DEBUG=False
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+
+# Superuser (Auto-creation)
+DJANGO_SUPERUSER_USERNAME=tapdiyaom
+DJANGO_SUPERUSER_EMAIL=your-email@gmail.com
+DJANGO_SUPERUSER_PASSWORD=secure-password
+
+# Email (Brevo SMTP)
+BREVO_API_KEY=your-brevo-api-key
+BREVO_SMTP_KEY=your-brevo-smtp-key
+EMAIL_BACKEND=path.to.email.backend
+EMAIL_HOST=smtp-relay.brevo.com
+EMAIL_PORT=587
+
+# AWS S3 (Optional)
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_STORAGE_BUCKET_NAME=your-bucket
+```
+
+### Deployment Steps
+1. Push code to GitHub
+2. Render detects new commit
+3. Runs `collectstatic` (static files)
+4. Runs migrations (database schema)
+5. Initializes superuser (if not exists)
+6. Starts Gunicorn server
+7. Application ready on deployed URL
+
+### Database Management
+- **PostgreSQL:** Hosted on Render
+- **Migrations:** Automatic on deployment
+- **Backups:** Render automatic daily backups
+- **Monitoring:** Render dashboard with metrics
+
+---
 
 ## Project Structure
-```
-Authentication/
-├── auth_project/        # Django project settings
-├── core/               # Main app
-│   ├── models.py       # Database models
-│   ├── views.py        # View logic
-│   ├── urls.py         # URL routing
-│   ├── forms.py        # Form definitions
-│   ├── admin.py        # Admin configuration
-│   └── templates/      # HTML templates
-│       └── core/
-│           ├── base.html
-│           ├── hr_login.html
-│           ├── hr_register.html
-│           ├── hr_dashboard.html
-│           ├── student_detail.html
-│           └── ... (other templates)
-├── media/              # Uploaded files
-├── db.sqlite3          # Database
-├── manage.py           # Django management
-└── create_test_hr.sh   # Test HR account creation
-
-```
-
-## API Endpoints
-
-### Authentication
-- `POST /register/` - Student registration
-- `GET /login/` - Student login page
-- `POST /login/` - Student login
-- `GET /hr/login/` - HR login page
-- `POST /hr/login/` - HR login
-- `GET /hr/register/` - HR registration
-- `POST /hr/register/` - HR registration
-
-### Student Routes
-- `GET /dashboard/` - Student dashboard
-- `GET /profile/` - Student profile page
-- `POST /profile/` - Update student profile
-- `GET /upload/` - Document upload page
-- `POST /upload/` - Upload document
-- `GET /add_note/` - Add note page
-- `POST /add_note/` - Create note
-
-### HR Routes
-- `GET /hr/dashboard/` - HR dashboard with filtering/sorting
-- `GET /hr/student/<user_id>/` - View student details
-- `GET /hr/logout/` - HR logout
-
-## Features Explained
-
-### HR Dashboard Filtering
-1. **Branch Filter:** Filter students by branch (CSE, ECE, Mechanical, etc.)
-2. **CGPA Range:** Filter students with CGPA between min and max values
-3. **Backlogs:** Show only students with specified maximum backlogs
-4. **Sorting:** Sort results by CGPA, backlogs, name, or branch
-
-### Student Profile Links
-HR can access:
-- GitHub profile: `https://www.github.com/[username]`
-- LinkedIn profile: `https://www.linkedin.com/in/[username]`
-- HackerRank profile: `https://www.hackerrank.com/[username]`
-- Other platforms: Custom platform names and usernames
-
-### Statistics
-- **Total Students:** Count of all registered students
-- **Average CGPA:** Calculated from all student CGPAs
-- **Zero Backlogs:** Count of students with 0 current backlogs
-- **Branches:** Total number of unique branches represented
-
-## Security
-- Password hashing with Django's built-in system
-- CSRF protection on all forms
-- Login required decorators on protected views
-- User model validation
-- File upload restrictions (images and documents only)
-
-## Future Enhancements
-- Email verification for account creation
-- Batch student import from CSV
-- Interview scheduling system
-- Email notifications
-- Advanced analytics and reports
-- Multi-company HR management
-- Student visibility controls
-- Recruiter feedback system
-
----
-
-## 🚀 Quick Start
-
-### 1. Clone & Setup
-```bash
-git clone https://github.com/yourusername/RecruitHub.git
-cd RecruitHub
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Initialize Database
-```bash
-python manage.py migrate
-python manage.py createsuperuser
-```
-
-### 3. Create Test HR Account
-```bash
-python manage.py shell < create_test_hr.sh
-```
-
-### 4. Run Server
-```bash
-python manage.py runserver
-```
-
-Access the application at `http://127.0.0.1:8000`
-
----
-
-## 📋 Test Credentials
-
-### HR Account (for recruitment team)
-```
-URL: http://127.0.0.1:8000/hr/login/
-Username: hr_admin
-Password: hr123456
-```
-
-### Sample Student Accounts (for testing)
-| Branch | Username | Password |
-|--------|----------|----------|
-| CSE | 22CS001 | 22CS00122CS001 |
-| CSE | 22CS010 | 22CS01022CS010 |
-| IT | 22IT005 | 22IT00522IT005 |
-| ECE | 22EE015 | 22EE01522EE015 |
-| Mechanical | 22ME025 | 22ME02522ME025 |
-
-*Format: `22[BRANCH][###]` where BRANCH is 2-char code and ### is 001-200*
-
----
-
-## 🎯 Features at a Glance
-
-| Feature | Student | HR |
-|---------|---------|-----|
-| Profile Management | ✅ | ❌ |
-| Document Upload | ✅ | ❌ |
-| Notes System | ✅ | ❌ |
-| View Dashboard | ✅ | ✅ |
-| View All Students | ❌ | ✅ |
-| Filter Students | ❌ | ✅ |
-| Sort Students | ❌ | ✅ |
-| View Student Details | ❌ | ✅ |
-| Download Resume | ❌ | ✅ |
-| Access Social Profiles | ❌ | ✅ |
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | Django 6.0, Python 3.14 |
-| **Database** | PostgreSQL (prod), SQLite3 (dev) |
-| **Frontend** | Bootstrap 5.3, Vanilla JS |
-| **File Storage** | AWS S3 (cloud) / Local media/ (dev) |
-| **Images** | Pillow 10.0+ |
-| **OTP Verification** | Django Email Backend (Resend) |
-| **Server** | Gunicorn + Render / Django Dev Server |
-| **Styling** | Custom CSS + Bootstrap 5.3 |
-
----
-
-## 📁 Project Structure
 
 ```
 RecruitHub/
-├── 📄 manage.py                    # Django management script
-├── 📄 README.md                    # This file
-├── 📄 requirements.txt             # Dependencies
+├── auth_project/              # Django project settings
+│   ├── settings.py            # Configuration
+│   ├── urls.py                # Main URL routing
+│   ├── wsgi.py                # Gunicorn entry point
+│   └── asgi.py                # ASGI config
 │
-├── 📁 auth_project/               # Django Project Config
-│   ├── settings.py                # Django settings
-│   ├── urls.py                    # URL routing
-│   ├── wsgi.py                    # WSGI config
-│   └── asgi.py                    # ASGI config
+├── core/                       # Main application
+│   ├── models.py              # User, UserProfile, HRProfile, EmailOTP
+│   ├── views.py               # All view logic
+│   ├── admin.py               # Admin configuration
+│   ├── forms.py               # Registration/login forms
+│   ├── urls.py                # App URL routing
+│   ├── middleware.py          # Custom middleware
+│   ├── email_backends.py      # Email configuration
+│   ├── templates/             # HTML templates
+│   ├── static/                # CSS, JS, images
+│   └── migrations/            # Database migrations
 │
-├── 📁 core/                       # Main Application
-│   ├── models.py                  # Database models
-│   ├── views.py                   # View functions
-│   ├── urls.py                    # App URLs
-│   ├── forms.py                   # Forms
-│   ├── admin.py                   # Admin config
-│   │
-│   ├── 📁 templates/core/
-│   │   ├── base.html              # Base template
-│   │   ├── register.html          # Student registration
-│   │   ├── login.html             # Student login
-│   │   ├── dashboard.html         # Student dashboard
-│   │   ├── profile.html           # Profile page
-│   │   ├── hr_login.html          # HR login
-│   │   ├── hr_register.html       # HR registration
-│   │   ├── hr_dashboard.html      # HR recruitment dashboard
-│   │   ├── student_detail.html    # Student profile (HR view)
-│   │   ├── add_note.html          # Add note
-│   │   ├── view_note.html         # View note
-│   │   ├── edit_note.html         # Edit note
-│   │   ├── delete_note.html       # Delete note
-│   │   ├── upload_document.html   # Upload resume
-│   │   └── ... (other templates)
-│   │
-│   └── 📁 migrations/
-│       └── (Database migration files)
-│
-├── 📁 media/                      # Uploaded files
-│   └── documents/                 # Student resumes
-│
-└── 📁 db.sqlite3                  # SQLite database
+├── manage.py                   # Django CLI
+├── requirements.txt            # Python dependencies
+├── Procfile                    # Render deployment config
+├── runtime.txt                 # Python version
+└── README.md                   # This file
 ```
 
 ---
 
-## 🔐 Security Considerations
+## Key Technologies
 
-- ✅ Password hashing with Django's default PBKDF2
-- ✅ CSRF tokens on all forms
-- ✅ SQL injection protection via ORM
-- ✅ Login required decorators
-- ✅ File upload validation
-- ⚠️ **For Production:** Use environment variables, HTTPS, stronger SECRET_KEY
-
----
-
-## 📊 Database Schema
-
-### UserProfile
-- User details (name, email, phone)
-- Address information
-- Academic info (branch, CGPA, backlogs)
-- Professional info (skills, experience)
-- Social media links
-- Resume and profile photo
-
-### HRProfile
-- Company information
-- Designation
-- Department
-- Created/Updated timestamps
-
-### Document
-- File title
-- File path
-- Upload timestamp
-- Associated with user
-
-### Note
-- Title and content
-- Created/Updated timestamps
-- Associated with user
+- **Backend:** Django 6.0 (Python 3.13)
+- **Database:** PostgreSQL (Render Cloud)
+- **Frontend:** Bootstrap 5, HTML5, CSS3
+- **Authentication:** Django built-in + OTP
+- **Email:** Brevo SMTP (free tier)
+- **Storage:** AWS S3 (media files)
+- **Hosting:** Render.com
+- **Version Control:** Git & GitHub
 
 ---
 
-## 🤝 Contributing
+## Testing Accounts
 
-Contributions are welcome! Please follow these steps:
+### Admin Account
+- **URL:** `/admintapdiyaom/`
+- **Username:** tapdiyaom
+- **Email:** tapdiya75@gmail.com
+- **Password:** Check environment variables
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Test Student Accounts
+- Can create via admin or manually register
+- Format: username/password defined during registration
+- Complete profiles with test data
+
+### Test HR Accounts
+- Register via `/hr/register/`
+- Requires email verification
+- Needs admin approval to access dashboard
+- Can view and filter students once approved
 
 ---
-📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Common Issues & Solutions
 
-⸻
+### Issue: HR account appears in User Profiles
+**Solution:** Signal now auto-removes UserProfile when user becomes staff
 
-👨‍💻 Author
+### Issue: Admin shows as student in HR dashboard
+**Solution:** HR dashboard filters exclude `is_staff=True` and `is_superuser=True`
 
-Om Tapdiya
-B.Tech CSE (Data Science), VIT Pune
-Created for college recruitment management and HR automation.
+### Issue: HR can login as student
+**Solution:** StudentLoginView blocks login with error message
 
-⸻
+### Issue: 500 error on HR Profiles page
+**Solution:** Changed `format_html()` to `mark_safe()` for HTML strings
 
-📞 Support
+### Issue: HR registration doesn't create HR profile
+**Solution:** Fixed to set `is_staff=True` before save, then delete UserProfile
 
-For issues, questions, or suggestions:
-	•	Open an issue on GitHub
-	•	Contact: omtapdiya75@gmail.com
+---
 
-⸻
+## Future Enhancements
 
-🎓 About RecruitHub
+- [ ] Email notifications to HR on student registration
+- [ ] Interview scheduling system
+- [ ] Job posting and application management
+- [ ] Offer letter generation
+- [ ] Analytics dashboard with charts
+- [ ] Two-factor authentication (2FA)
+- [ ] Role-based permissions system
+- [ ] API for mobile app
+- [ ] Bulk student upload (CSV)
+- [ ] Advanced search and filters
 
-RecruitHub is a modern recruitment management system designed specifically for educational institutions. It bridges the gap between students and recruiters by providing:
-	•	📊 Real-time Analytics – Track student profiles and recruitment metrics
-	•	🔍 Advanced Filtering – Find perfect candidates based on multiple criteria
-	•	💼 Professional Profiles – Complete student information in one place
-	•	🔗 Social Integration – Direct links to candidate’s GitHub, LinkedIn, and other profiles
-	•	📱 Responsive Design – Works seamlessly on desktop and mobile devices
+---
 
-⸻
+## Support & Contact
 
-🔗 Developer Links
-	•	GitHub: https://github.com/Om-mac
-    
-	•	LinkedIn: https://www.linkedin.com/in/omtapdiya
+**Developer:** Om Tapdiya
+**Email:** tapdiya75@gmail.com
+**GitHub:** [RecruitHub Repository](https://github.com/Om-mac/RecruitHub)
 
-⸻
+**Last Updated:** December 24, 2025
+**Version:** 2.0.0 (Production Ready)
 
-Star ⭐ this repository if you found it helpful!
+---
+
+## License
+
+This project is proprietary software. Unauthorized copying or distribution is prohibited.
+
+---
+
+**Made with ❤️ for Campus Recruitment**
