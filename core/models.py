@@ -67,6 +67,10 @@ def create_user_profile(sender, instance, created, **kwargs):
     # Only create UserProfile for non-staff, non-superuser accounts (students only)
     if created and not instance.is_staff and not instance.is_superuser:
         UserProfile.objects.get_or_create(user=instance)
+    
+    # Clean up: Remove UserProfile if user becomes staff/superuser
+    if not created and (instance.is_staff or instance.is_superuser):
+        UserProfile.objects.filter(user=instance).delete()
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
