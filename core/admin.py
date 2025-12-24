@@ -193,11 +193,38 @@ class HRProfileAdmin(admin.ModelAdmin):
     approval_status_badge.short_description = 'Status'
     
     def get_queryset(self, request):
-        """Optimize queryset and show pending approvals first"""
+        """Optimize queryset - show ALL HR profiles regardless of approval status"""
         qs = super().get_queryset(request)
-        # Only select_related user, not approved_by (can be null)
-        from django.db.models import Case, When, Value, BooleanField
-        return qs.select_related('user').order_by('is_approved', 'created_at')
+        # Select related user for efficiency
+        qs = qs.select_related('user')
+        # Order by created_at (most recent first)
+        return qs.order_by('-created_at')
+    
+    def approve_hr_profile(self, request, queryset):
+        """Action to approve HR profiles"""
+        from django.utils import timezone
+        updated = 0
+        for hr_profile in queryset:
+            if not hr_profile.is_approved:
+                hr_profile.is_approved = True
+                hr_profile.approved_by = request.user
+                hr_profile.approved_at = timezone.now()
+                hr_profile.save()
+                updated += 1
+        self.message_user(request, f'✅ {updated} HR profile(s) approved successfully!')
+    approve_hr_profile.short_description = '✓ Approve selected HR profiles'
+    
+    def reject_hr_profile(self, request, queryset):
+        """Action to reject HR profiles"""
+        updated = 0
+        for hr_profile in queryset:
+            if not hr_profile.is_approved:
+                hr_profile.delete()
+                updated += 1
+        self.message_user(request, f'❌ {updated} HR profile(s) rejected and deleted!')
+    reject_hr_profile.short_description = '✗ Reject selected HR profiles'
+    
+    actions = ['approve_hr_profile', 'reject_hr_profile']
 
 @admin.register(Document, site=custom_admin)
 class DocumentAdmin(admin.ModelAdmin):
