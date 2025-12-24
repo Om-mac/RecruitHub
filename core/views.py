@@ -405,7 +405,11 @@ def hr_register_step3_create_account(request):
             
             user = user_form.save(commit=False)
             user.set_password(user_form.cleaned_data['password'])
+            user.is_staff = True  # Mark as staff member
             user.save()
+            
+            # Delete any UserProfile that was auto-created (HR users should not have student profiles)
+            UserProfile.objects.filter(user=user).delete()
             
             # Create HR Profile (NOT APPROVED by default)
             hr_profile = HRProfile.objects.create(
