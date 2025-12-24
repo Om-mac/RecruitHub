@@ -52,7 +52,25 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'⚠ Could not verify tables: {str(e)}'))
         
-        # Step 3: Create HR user if doesn't exist
+        # Step 3: Create superuser from environment variables
+        try:
+            import os
+            username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
+            email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
+            password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+            
+            if username and email and password:
+                if not User.objects.filter(username=username).exists():
+                    User.objects.create_superuser(username, email, password)
+                    self.stdout.write(self.style.SUCCESS(f'✓ Created superuser: {username}'))
+                else:
+                    self.stdout.write(self.style.SUCCESS(f'✓ Superuser already exists: {username}'))
+            else:
+                self.stdout.write(self.style.WARNING('⚠ Superuser environment variables not set'))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'✗ Failed to create superuser: {str(e)}'))
+        
+        # Step 4: Create HR user if doesn't exist
         try:
             if not User.objects.filter(username='hr').exists():
                 user = User.objects.create_user(
