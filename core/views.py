@@ -406,7 +406,8 @@ def hr_register_step2_verify_otp(request):
         
         form = OTPForm(request.POST)
         if form.is_valid():
-            otp_code = form.cleaned_data['otp']
+            # Strip whitespace from OTP input
+            otp_code = form.cleaned_data['otp'].strip()
             
             # Verify OTP
             try:
@@ -426,6 +427,9 @@ def hr_register_step2_verify_otp(request):
                     messages.error(request, 'Too many failed attempts. Please request a new OTP.')
                     return redirect('hr_register_step1_email')
                 
+                # Debug: Log OTP verification attempt (without revealing the hash)
+                logger.debug(f'Verifying OTP for {email} - Length: {len(otp_code)}')
+                
                 # Verify hashed OTP
                 if otp_obj.verify_otp(otp_code):
                     # Mark as verified, reset failed attempts, and DELETE OTP record (one-time use)
@@ -440,6 +444,7 @@ def hr_register_step2_verify_otp(request):
                 else:
                     # Invalid OTP - record failed attempt
                     otp_obj.record_failed_attempt()
+                    logger.warning(f'Invalid OTP attempt for {email} - Attempts: {otp_obj.failed_attempts}/{EmailOTP.MAX_FAILED_ATTEMPTS}')
                     
                     remaining = EmailOTP.MAX_FAILED_ATTEMPTS - otp_obj.failed_attempts
                     if remaining > 0:
@@ -715,7 +720,8 @@ def password_reset_verify_otp(request):
         
         form = OTPForm(request.POST)
         if form.is_valid():
-            otp_code = form.cleaned_data['otp']
+            # Strip whitespace from OTP input
+            otp_code = form.cleaned_data['otp'].strip()
             
             # Verify OTP
             try:
@@ -749,6 +755,7 @@ def password_reset_verify_otp(request):
                 else:
                     # Invalid OTP - record failed attempt
                     otp_obj.record_failed_attempt()
+                    logger.warning(f'Invalid OTP attempt for password reset - {email} - Attempts: {otp_obj.failed_attempts}/{EmailOTP.MAX_FAILED_ATTEMPTS}')
                     
                     remaining = EmailOTP.MAX_FAILED_ATTEMPTS - otp_obj.failed_attempts
                     if remaining > 0:
@@ -931,7 +938,8 @@ def register_step2_verify_otp(request):
     if request.method == 'POST':
         form = OTPForm(request.POST)
         if form.is_valid():
-            otp = form.cleaned_data['otp']
+            # Strip whitespace from OTP input
+            otp = form.cleaned_data['otp'].strip()
             
             try:
                 otp_obj = EmailOTP.objects.get(email=email)
@@ -948,19 +956,24 @@ def register_step2_verify_otp(request):
                     messages.error(request, 'Too many failed attempts. Please request a new OTP.')
                     return redirect('register_step1_email')
                 
-                # Check if OTP matches
-                if otp_obj.otp == otp:
+                # Check if OTP matches (using secure password comparison with hashed OTP)
+                if otp_obj.verify_otp(otp):
                     # Mark as verified and proceed to registration
-                    otp_obj.is_verified = True
-                    otp_obj.save()
+                    otp_obj.reset_failed_attempts()
                     request.session['otp_verified'] = True
+                    # Delete OTP record - one-time use only
+                    otp_obj.delete()
+                    messages.success(request, 'Email verified! Now create your account.')
                     return redirect('register_step3_create_account')
                 else:
                     # Increment failed attempts
-                    otp_obj.attempts += 1
-                    otp_obj.save()
-                    remaining = 5 - otp_obj.attempts
-                    messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                    otp_obj.record_failed_attempt()
+                    remaining = EmailOTP.MAX_FAILED_ATTEMPTS - otp_obj.failed_attempts
+                    if remaining > 0:
+                        messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                    else:
+                        messages.error(request, f'Too many failed attempts. Account locked for {EmailOTP.ATTEMPT_LOCKOUT_MINUTES} minutes.')
+                        return redirect('register_step1_email')
                     
             except EmailOTP.DoesNotExist:
                 messages.error(request, 'OTP not found. Please request a new one.')
