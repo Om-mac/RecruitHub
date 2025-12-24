@@ -151,18 +151,12 @@ class HRProfileAdmin(admin.ModelAdmin):
     
     def changelist_view(self, request, extra_context=None):
         """Override changelist view to add debug info"""
-        from django.db.models import Count
         extra_context = extra_context or {}
         # Debug: count total HR profiles
         total_profiles = HRProfile.objects.count()
         extra_context['total_hr_profiles'] = total_profiles
         print(f"🔍 DEBUG: Total HR Profiles in DB: {total_profiles}")
         return super().changelist_view(request, extra_context)
-        ('Approval Status', {
-            'fields': ('is_approved', 'approval_requested_at', 'approved_by', 'approved_at', 'approval_token', 'rejection_reason'),
-            'classes': ('collapse',),
-        }),
-    )
     
     def save_model(self, request, obj, form, change):
         """Ensure HR account is properly configured as staff and not a student"""
