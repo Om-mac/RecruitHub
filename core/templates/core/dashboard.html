@@ -67,7 +67,11 @@
             <div class="card border-0 shadow">
                 <div class="card-body text-center">
                     {% if profile.profile_photo %}
-                        <img src="{{ profile.profile_photo.url }}" alt="Profile" class="rounded-circle mb-3" style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #667eea;">
+                        <img id="dashboard-photo" src="" alt="Profile" class="rounded-circle mb-3" style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #667eea; display:none;">
+                        <div id="dashboard-photo-loading" class="rounded-circle mb-3" style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                        <script>
+                            fetch('/download/profile-photo/').then(r=>r.json()).then(d=>{document.getElementById('dashboard-photo').src=d.url;document.getElementById('dashboard-photo').style.display='block';document.getElementById('dashboard-photo-loading').style.display='none';}).catch(e=>console.error(e));
+                        </script>
                     {% else %}
                         <div class="rounded-circle mb-3 d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0 auto;">
                             <i class="fas fa-user fa-3x text-white"></i>

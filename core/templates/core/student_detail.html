@@ -17,7 +17,13 @@
             <div class="card">
                 <div class="card-body text-center">
                     {% if student.profile_photo %}
-                        <img src="{{ student.profile_photo.url }}" alt="Profile Photo" class="profile-photo mb-3">
+                        <img id="student-detail-photo" src="" alt="Profile Photo" class="profile-photo mb-3" style="display:none;">
+                        <div id="student-photo-loading" class="profile-photo mb-3 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="fas fa-spinner fa-spin fa-3x text-white"></i>
+                        </div>
+                        <script>
+                            fetch('/download/profile-photo/').then(r=>r.json()).then(d=>{document.getElementById('student-detail-photo').src=d.url;document.getElementById('student-detail-photo').style.display='block';document.getElementById('student-photo-loading').style.display='none';}).catch(e=>{document.getElementById('student-photo-loading').innerHTML='<i class="fas fa-exclamation-circle fa-3x text-danger"></i>';});
+                        </script>
                     {% else %}
                         <div class="profile-photo mb-3" style="background: #667eea; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-user fa-4x text-white"></i>
