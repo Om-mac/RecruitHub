@@ -64,7 +64,8 @@ class UserProfile(models.Model):
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
-    if created:
+    # Only create UserProfile for non-staff, non-superuser accounts (students only)
+    if created and not instance.is_staff and not instance.is_superuser:
         UserProfile.objects.get_or_create(user=instance)
 
 @receiver(post_save, sender=User)
