@@ -181,7 +181,6 @@ class HRProfileAdmin(admin.ModelAdmin):
                 '<span style="background: #f39c12; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">⏳ Pending</span>'
             )
     approval_status_badge.short_description = 'Status'
-    approval_status_info.short_description = 'Approval Information'
     
     def get_queryset(self, request):
         """Optimize queryset and show pending approvals first"""
