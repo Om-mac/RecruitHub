@@ -292,9 +292,9 @@ class HRProfileAdmin(admin.ModelAdmin):
     approval_status_info.short_description = 'Approval Information'
     
     def get_queryset(self, request):
-        """Customize queryset to show pending approvals first"""
+        """Optimize queryset with select_related and show pending approvals first"""
         qs = super().get_queryset(request)
-        return qs.order_by('is_approved', '-approval_requested_at')
+        return qs.select_related('user', 'approved_by').order_by('is_approved', '-approval_requested_at')
 
 @admin.register(Document, site=custom_admin)
 class DocumentAdmin(admin.ModelAdmin):
@@ -431,38 +431,26 @@ class EmailOTPAdmin(admin.ModelAdmin):
     validity_badge.short_description = 'Status'
 
 
-# Register User model with custom delete functionality
+# Register User model - ONLY shows student accounts (not HR staff)
 @admin.register(User, site=custom_admin)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['username_with_type', 'first_name', 'last_name', 'email', 'account_type_badge', 'is_active']
+    list_display = ['username_display', 'first_name', 'last_name', 'email', 'is_active']
     search_fields = ['username', 'first_name', 'last_name', 'email']
-    list_filter = ['is_staff', 'is_active', 'date_joined']
+    list_filter = ['is_active', 'date_joined']
+    readonly_fields = ('username', 'is_staff', 'is_superuser')
     
-    def username_with_type(self, obj):
+    def get_queryset(self, request):
+        """Only show student accounts (exclude all staff/superuser accounts)"""
+        qs = super().get_queryset(request)
+        # Exclude all staff and superuser accounts (HR and admin users)
+        return qs.filter(is_staff=False, is_superuser=False).select_related('profile')
+    
+    def username_display(self, obj):
         return format_html(
-            '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">👤 {}</span>',
+            '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">🎓 {}</span>',
             obj.username
         )
-    username_with_type.short_description = 'Username'
-    
-    def account_type_badge(self, obj):
-        """Show whether this is an HR or Student account"""
-        has_hr_profile = HRProfile.objects.filter(user=obj).exists()
-        has_student_profile = UserProfile.objects.filter(user=obj).exists()
-        
-        if has_hr_profile:
-            return format_html(
-                '<span style="background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">👔 HR Account</span>'
-            )
-        elif has_student_profile:
-            return format_html(
-                '<span style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">🎓 Student Account</span>'
-            )
-        else:
-            return format_html(
-                '<span style="background: #95a5a6; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">❓ No Profile</span>'
-            )
-    account_type_badge.short_description = 'Account Type'
+    username_display.short_description = 'Username'
     
     def has_delete_permission(self, request, obj=None):
         """Allow superuser to delete users"""
