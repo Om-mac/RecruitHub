@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from .models import UserProfile, Document, Note, HRProfile, EmailOTP
 
 # Custom Admin Site with Enhanced Styling
@@ -192,11 +192,11 @@ class HRProfileAdmin(admin.ModelAdmin):
     
     def approval_status_badge(self, obj):
         if obj.is_approved:
-            return format_html(
+            return mark_safe(
                 '<span style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">✓ Approved</span>'
             )
         else:
-            return format_html(
+            return mark_safe(
                 '<span style="background: #f39c12; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">⏳ Pending</span>'
             )
     approval_status_badge.short_description = 'Status'
