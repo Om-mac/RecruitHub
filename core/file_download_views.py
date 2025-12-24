@@ -82,16 +82,46 @@ def download_resume(request):
 @require_http_methods(["GET"])
 def download_profile_photo(request):
     """
-    Generate presigned URL for user's profile photo
+    Generate presigned URL for profile photo
+    
+    Parameters:
+    - user_id (optional): Get another user's photo (for HR/admin viewing students)
     
     Security:
     - Requires authentication
-    - Verifies user owns the photo
+    - If user_id provided: HR/admin permission check
+    - If no user_id: Returns current user's photo
     - Returns presigned URL (not direct S3 URL)
     - URL expires in 5 minutes
     """
     try:
-        profile = request.user.profile
+        # Get user_id from query parameters (optional)
+        user_id = request.GET.get('user_id')
+        
+        if user_id:
+            # HR/Admin viewing a student's photo
+            # Check if current user is HR/Admin
+            if not (request.user.is_staff or request.user.is_superuser):
+                return JsonResponse({
+                    'error': 'Access denied',
+                    'status': 403
+                }, status=403)
+            
+            # Get the requested user's profile
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            try:
+                target_user = User.objects.get(id=user_id)
+                profile = target_user.profile
+            except User.DoesNotExist:
+                return JsonResponse({
+                    'error': 'User not found',
+                    'status': 404
+                }, status=404)
+        else:
+            # Get current user's photo
+            profile = request.user.profile
+        
         if not profile.profile_photo:
             return JsonResponse({
                 'error': 'No profile photo found',
@@ -100,13 +130,6 @@ def download_profile_photo(request):
         
         # Get photo file path
         photo_path = profile.profile_photo.name
-        
-        # Verify user owns this file
-        if not validate_s3_file_access(request.user, photo_path):
-            return JsonResponse({
-                'error': 'Access denied',
-                'status': 403
-            }, status=403)
         
         # Generate presigned URL (5 min validity)
         presigned_url = generate_presigned_url(photo_path, expiration=300)
