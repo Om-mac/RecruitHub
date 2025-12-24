@@ -25,20 +25,17 @@ class StudentLoginView(LoginView):
     """Custom login view that blocks HR and staff accounts from logging in as students"""
     template_name = 'registration/login.html'
     
-    def post(self, request, *args, **kwargs):
-        # Get the form from parent
-        response = super().post(request, *args, **kwargs)
+    def form_valid(self, form):
+        """Override to check if user is HR/staff before logging in"""
+        user = form.get_user()
         
-        # Check if login was successful by checking if user is authenticated
-        if request.user.is_authenticated:
-            # Block HR and staff users from logging in as students
-            if request.user.is_staff or request.user.is_superuser or hasattr(request.user, 'hr_profile'):
-                # Logout the user immediately
-                logout(request)
-                messages.error(request, 'HR and Staff accounts must use the HR login page. Please login at /hr/login/')
-                return redirect('login')
+        # BLOCK: HR accounts, staff, and superusers from student login
+        if user.is_staff or user.is_superuser or hasattr(user, 'hr_profile'):
+            messages.error(self.request, '❌ HR and Staff accounts must use the HR login page. Please login at /hr/login/')
+            return redirect('login')
         
-        return response
+        # Allow normal students to login
+        return super().form_valid(form)
 
 
 def send_hr_approval_email(hr_profile, approval_token):
