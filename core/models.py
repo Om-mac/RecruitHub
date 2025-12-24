@@ -342,9 +342,12 @@ class IPRateLimit(models.Model):
     
     def reset_for_ip(self):
         """Reset rate limiting for this IP"""
+        from django.utils import timezone
+        
         self.attempt_count = 0
         self.blocked_until = None
-        self.first_attempt_at = None
+        # Reset first_attempt_at to current time (don't set to None)
+        self.first_attempt_at = timezone.now()
         self.save()
     
     @classmethod
