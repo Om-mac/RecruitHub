@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from .models import Document, Note, UserProfile, HRProfile
 from bleach import clean
+from .file_validators import validate_resume_file, validate_profile_photo, validate_document_file
 
 # XSS Protection helper function
 def sanitize_input(value):
@@ -171,9 +172,31 @@ class UserProfileForm(forms.ModelForm):
             'other_platforms': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Other Platforms (e.g., Codeforces: username)', 'rows': 3}),
             'experience': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Work Experience', 'rows': 3}),
             'bio': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Bio / About Me', 'rows': 3}),
-            'profile_photo': forms.FileInput(attrs={'class': 'form-control'}),
-            'resume': forms.FileInput(attrs={'class': 'form-control'}),
+            'profile_photo': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png',
+                'title': 'JPG or PNG image, max 1 MB'
+            }),
+            'resume': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'application/pdf',
+                'title': 'PDF file, max 5 MB'
+            }),
         }
+    
+    def clean_profile_photo(self):
+        """Validate profile photo file"""
+        file = self.cleaned_data.get('profile_photo')
+        if file:
+            validate_profile_photo(file)
+        return file
+    
+    def clean_resume(self):
+        """Validate resume file"""
+        file = self.cleaned_data.get('resume')
+        if file:
+            validate_resume_file(file)
+        return file
 
 class PasswordResetForm(forms.Form):
     email = forms.EmailField(
@@ -250,8 +273,19 @@ class DocumentForm(forms.ModelForm):
         fields = ['title', 'file']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Document Title'}),
-            'file': forms.FileInput(attrs={'class': 'form-control'}),
+            'file': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'application/pdf,image/jpeg,image/png',
+                'title': 'PDF, JPG, or PNG file - max 5 MB'
+            }),
         }
+    
+    def clean_file(self):
+        """Validate document file"""
+        file = self.cleaned_data.get('file')
+        if file:
+            validate_document_file(file)
+        return file
 
 class OTPForm(forms.Form):
     """Form for OTP verification"""

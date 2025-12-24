@@ -165,8 +165,9 @@ if USE_S3:
     # Include region in the custom domain for correct S3 URLs
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    # Make files publicly readable
-    AWS_DEFAULT_ACL = 'public-read'
+    # Security: No direct public access - use presigned URLs only
+    AWS_DEFAULT_ACL = None  # No default ACL, requires presigned URL for access
+    AWS_QUERYSTRING_AUTH = True  # Require query string authentication for all URLs
     AWS_S3_ADDRESSING_STYLE = 'virtual'
     # Static files stay local with WhiteNoise
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'

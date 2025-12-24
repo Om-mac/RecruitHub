@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .file_download_views import download_resume, download_profile_photo, download_document, view_file_info
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -17,6 +18,12 @@ urlpatterns = [
     path('note/<int:note_id>/', views.view_note, name='view_note'),
     path('note/<int:note_id>/edit/', views.edit_note, name='edit_note'),
     path('note/<int:note_id>/delete/', views.delete_note, name='delete_note'),
+    
+    # Secure file download endpoints (presigned URLs)
+    path('download/resume/', download_resume, name='download_resume'),
+    path('download/profile-photo/', download_profile_photo, name='download_profile_photo'),
+    path('download/document/<int:doc_id>/', download_document, name='download_document'),
+    path('file-info/<str:file_type>/', view_file_info, name='view_file_info'),
     
     # Password reset URLs - OTP based (3-step process)
     path('password_reset/', views.password_reset_request, name='password_reset_request'),
