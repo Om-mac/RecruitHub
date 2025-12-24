@@ -14,8 +14,9 @@ import random
 import string
 import threading
 import logging
-from .models import Document, Note, UserProfile, HRProfile, EmailOTP
+from .models import Document, Note, UserProfile, HRProfile, EmailOTP, IPRateLimit
 from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm, OTPForm, EmailOTPForm
+from .utils import get_client_ip
 
 User = get_user_model()
 logger = logging.getLogger('core')
@@ -330,12 +331,38 @@ def hr_register_step1_email(request):
                 messages.error(request, 'This email is already registered.')
                 return render(request, 'core/hr_register_step1_email.html', {'form': form})
             
+            # Check rate limiting for OTP requests
+            try:
+                email_otp = EmailOTP.objects.get(email=email)
+                
+                # Check if locked out due to failed attempts
+                if email_otp.is_locked_out():
+                    minutes = EmailOTP.ATTEMPT_LOCKOUT_MINUTES
+                    messages.error(request, f'Too many failed attempts. Please try again in {minutes} minutes.')
+                    return render(request, 'core/hr_register_step1_email.html', {'form': form})
+                
+                # Check rate limit for requesting new OTP
+                can_request, wait_seconds = email_otp.can_request_otp()
+                if not can_request:
+                    messages.warning(request, f'Please wait {wait_seconds} seconds before requesting a new OTP.')
+                    return render(request, 'core/hr_register_step1_email.html', {'form': form})
+                
+                # Check hourly request limit
+                hourly_requests = email_otp.get_hourly_request_count()
+                if hourly_requests >= EmailOTP.MAX_ATTEMPTS_PER_HOUR:
+                    messages.error(request, f'You have requested {hourly_requests} OTPs in the last hour. Please try again later.')
+                    return render(request, 'core/hr_register_step1_email.html', {'form': form})
+                
+            except EmailOTP.DoesNotExist:
+                pass  # New email, no rate limiting check needed
+            
             # Generate OTP
             otp = ''.join(random.choices(string.digits, k=6))
             
-            # Save OTP
+            # Save OTP with rate limiting record
             EmailOTP.objects.filter(email=email).delete()
-            EmailOTP.objects.create(email=email, otp=otp)
+            email_otp = EmailOTP.objects.create(email=email, otp=otp)
+            email_otp.record_otp_request()
             
             # Send OTP email in background
             send_otp_email(email, otp)
@@ -355,21 +382,41 @@ def hr_register_step1_email(request):
 
 
 def hr_register_step2_verify_otp(request):
-    """HR Registration Step 2: Verify OTP"""
+    """HR Registration Step 2: Verify OTP - Protected with IP rate limiting"""
     email = request.session.get('hr_registration_email')
     
     if not email:
         messages.error(request, 'Please start from email entry.')
         return redirect('hr_register_step1_email')
     
+    # Get client IP for rate limiting
+    client_ip = get_client_ip(request)
+    
     if request.method == 'POST':
+        # Check IP rate limiting (3 attempts per minute)
+        ip_limiter = IPRateLimit.get_or_create_for_ip(client_ip, endpoint='otp_verify')
+        is_blocked, remaining_attempts, wait_seconds = ip_limiter.check_rate_limit()
+        
+        if is_blocked:
+            messages.error(request, f'Too many verification attempts from your IP. Please try again in {wait_seconds // 60} minutes.')
+            return render(request, 'core/hr_register_step2_verify_otp.html', {'form': OTPForm(), 'email': email})
+        
+        # Increment IP attempt counter
+        ip_limiter.increment_attempt()
+        
         form = OTPForm(request.POST)
         if form.is_valid():
             otp_code = form.cleaned_data['otp']
             
             # Verify OTP
             try:
-                otp_obj = EmailOTP.objects.get(email=email, otp=otp_code)
+                otp_obj = EmailOTP.objects.get(email=email)
+                
+                # Check if locked out
+                if otp_obj.is_locked_out():
+                    minutes = EmailOTP.ATTEMPT_LOCKOUT_MINUTES
+                    messages.error(request, f'Too many failed attempts. Account locked for {minutes} minutes.')
+                    return redirect('hr_register_step1_email')
                 
                 if otp_obj.is_expired():
                     messages.error(request, 'OTP has expired. Please request a new one.')
@@ -379,21 +426,31 @@ def hr_register_step2_verify_otp(request):
                     messages.error(request, 'Too many failed attempts. Please request a new OTP.')
                     return redirect('hr_register_step1_email')
                 
-                # Mark as verified
-                request.session['hr_otp_verified'] = True
-                messages.success(request, 'Email verified! Now create your HR account.')
-                return redirect('hr_register_step3_create_account')
+                # Verify hashed OTP
+                if otp_obj.verify_otp(otp_code):
+                    # Mark as verified, reset failed attempts, and DELETE OTP record (one-time use)
+                    otp_obj.reset_failed_attempts()
+                    # Reset IP rate limiting on success
+                    ip_limiter.reset_for_ip()
+                    # Delete OTP record - one-time use only
+                    otp_obj.delete()
+                    request.session['hr_otp_verified'] = True
+                    messages.success(request, 'Email verified! Now create your HR account.')
+                    return redirect('hr_register_step3_create_account')
+                else:
+                    # Invalid OTP - record failed attempt
+                    otp_obj.record_failed_attempt()
+                    
+                    remaining = EmailOTP.MAX_FAILED_ATTEMPTS - otp_obj.failed_attempts
+                    if remaining > 0:
+                        messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                    else:
+                        messages.error(request, f'Too many failed attempts. Account locked for {EmailOTP.ATTEMPT_LOCKOUT_MINUTES} minutes.')
+                        return redirect('hr_register_step1_email')
                 
             except EmailOTP.DoesNotExist:
-                otp_obj = EmailOTP.objects.get(email=email)
-                otp_obj.failed_attempts += 1
-                otp_obj.save()
-                
-                remaining = 5 - otp_obj.failed_attempts
-                messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
-                
-                if otp_obj.failed_attempts >= 5:
-                    return redirect('hr_register_step1_email')
+                messages.error(request, 'OTP not found. Please request a new one.')
+                return redirect('hr_register_step1_email')
         else:
             messages.error(request, 'Please enter a valid 6-digit OTP.')
     else:
@@ -581,12 +638,38 @@ def password_reset_request(request):
             try:
                 user = User.objects.get(email=email)
                 
+                # Check rate limiting for OTP requests
+                try:
+                    email_otp = EmailOTP.objects.get(email=email)
+                    
+                    # Check if locked out due to failed attempts
+                    if email_otp.is_locked_out():
+                        minutes = EmailOTP.ATTEMPT_LOCKOUT_MINUTES
+                        messages.error(request, f'Too many failed attempts. Please try again in {minutes} minutes.')
+                        return render(request, 'core/password_reset.html', {'form': form})
+                    
+                    # Check rate limit for requesting new OTP
+                    can_request, wait_seconds = email_otp.can_request_otp()
+                    if not can_request:
+                        messages.warning(request, f'Please wait {wait_seconds} seconds before requesting a new OTP.')
+                        return render(request, 'core/password_reset.html', {'form': form})
+                    
+                    # Check hourly request limit
+                    hourly_requests = email_otp.get_hourly_request_count()
+                    if hourly_requests >= EmailOTP.MAX_ATTEMPTS_PER_HOUR:
+                        messages.error(request, f'You have requested {hourly_requests} OTPs in the last hour. Please try again later.')
+                        return render(request, 'core/password_reset.html', {'form': form})
+                
+                except EmailOTP.DoesNotExist:
+                    pass  # New OTP request, no rate limiting check needed
+                
                 # Generate OTP
                 otp = ''.join(random.choices(string.digits, k=6))
                 
-                # Save OTP
+                # Save OTP with rate limiting record
                 EmailOTP.objects.filter(email=email).delete()
-                EmailOTP.objects.create(email=email, otp=otp)
+                email_otp = EmailOTP.objects.create(email=email, otp=otp)
+                email_otp.record_otp_request()
                 
                 # Send OTP email in background
                 send_otp_email(email, otp)
@@ -608,21 +691,41 @@ def password_reset_request(request):
 
 
 def password_reset_verify_otp(request):
-    """Password Reset Step 2: Verify OTP"""
+    """Password Reset Step 2: Verify OTP - Protected with IP rate limiting"""
     email = request.session.get('password_reset_email')
     
     if not email:
         messages.error(request, 'Please start from email entry.')
         return redirect('password_reset_request')
     
+    # Get client IP for rate limiting
+    client_ip = get_client_ip(request)
+    
     if request.method == 'POST':
+        # Check IP rate limiting (3 attempts per minute)
+        ip_limiter = IPRateLimit.get_or_create_for_ip(client_ip, endpoint='otp_verify')
+        is_blocked, remaining_attempts, wait_seconds = ip_limiter.check_rate_limit()
+        
+        if is_blocked:
+            messages.error(request, f'Too many verification attempts from your IP. Please try again in {wait_seconds // 60} minutes.')
+            return render(request, 'core/password_reset_verify_otp.html', {'form': OTPForm(), 'email': email})
+        
+        # Increment IP attempt counter
+        ip_limiter.increment_attempt()
+        
         form = OTPForm(request.POST)
         if form.is_valid():
             otp_code = form.cleaned_data['otp']
             
             # Verify OTP
             try:
-                otp_obj = EmailOTP.objects.get(email=email, otp=otp_code)
+                otp_obj = EmailOTP.objects.get(email=email)
+                
+                # Check if locked out
+                if otp_obj.is_locked_out():
+                    minutes = EmailOTP.ATTEMPT_LOCKOUT_MINUTES
+                    messages.error(request, f'Too many failed attempts. Account locked for {minutes} minutes.')
+                    return redirect('password_reset_request')
                 
                 if otp_obj.is_expired():
                     messages.error(request, 'OTP has expired. Please request a new one.')
@@ -632,23 +735,34 @@ def password_reset_verify_otp(request):
                     messages.error(request, 'Too many failed attempts. Please request a new OTP.')
                     return redirect('password_reset_request')
                 
-                # Mark as verified
-                request.session['password_reset_otp_verified'] = True
-                messages.success(request, 'OTP verified! Now set your new password.')
-                return redirect('password_reset_confirm')
-                
+                # Verify hashed OTP
+                if otp_obj.verify_otp(otp_code):
+                    # Mark as verified and reset failed attempts
+                    otp_obj.reset_failed_attempts()
+                    # Reset IP rate limiting on success
+                    ip_limiter.reset_for_ip()
+                    # Delete OTP record - one-time use only
+                    otp_obj.delete()
+                    request.session['password_reset_otp_verified'] = True
+                    messages.success(request, 'OTP verified! Now set your new password.')
+                    return redirect('password_reset_confirm')
+                else:
+                    # Invalid OTP - record failed attempt
+                    otp_obj.record_failed_attempt()
+                    
+                    remaining = EmailOTP.MAX_FAILED_ATTEMPTS - otp_obj.failed_attempts
+                    if remaining > 0:
+                        messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
+                    else:
+                        messages.error(request, f'Too many failed attempts. Account locked for {EmailOTP.ATTEMPT_LOCKOUT_MINUTES} minutes.')
+                        return redirect('password_reset_request')
+            
             except EmailOTP.DoesNotExist:
-                otp_obj = EmailOTP.objects.get(email=email)
-                otp_obj.failed_attempts += 1
-                otp_obj.save()
-                
-                remaining = 5 - otp_obj.failed_attempts
-                messages.error(request, f'Invalid OTP. {remaining} attempts remaining.')
-                
-                if otp_obj.failed_attempts >= 5:
-                    return redirect('password_reset_request')
+                messages.error(request, 'OTP not found. Please request a new one.')
+                return redirect('password_reset_request')
         else:
             messages.error(request, 'Please enter a valid 6-digit OTP.')
+
     else:
         form = OTPForm()
     
