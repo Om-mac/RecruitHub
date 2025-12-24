@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand
 from django.core.management import call_command
 from django.db import connection
 from django.contrib.auth.models import User
-from core.models import HRProfile
 
 class Command(BaseCommand):
     help = 'Initialize database - run migrations and create default data'
@@ -69,30 +68,5 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('⚠ Superuser environment variables not set'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'✗ Failed to create superuser: {str(e)}'))
-        
-        # Step 4: Create HR user if doesn't exist
-        try:
-            if not User.objects.filter(username='hr').exists():
-                user = User.objects.create_user(
-                    username='hr',
-                    email='hr@example.com',
-                    password='HRPassword123!',
-                    first_name='HR',
-                    last_name='Admin'
-                )
-                
-                HRProfile.objects.create(
-                    user=user,
-                    company_name='RecruitHub',
-                    designation='HR Manager',
-                    department='Human Resources'
-                )
-                
-                self.stdout.write(self.style.SUCCESS('✓ Created HR user: hr@example.com'))
-            else:
-                self.stdout.write(self.style.SUCCESS('✓ HR user already exists'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'✗ Failed to create HR user: {str(e)}'))
-            return
         
         self.stdout.write(self.style.SUCCESS('\n✅ Database initialization complete!'))
