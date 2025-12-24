@@ -155,7 +155,17 @@ class HRProfileAdmin(admin.ModelAdmin):
             # Make HR user a staff member
             obj.user.is_staff = True
             obj.user.save()
+            print(f"✅ Created HR Profile for {obj.user.username}")
         super().save_model(request, obj, form, change)
+        print(f"✅ Saved HR Profile: {obj.id} for user {obj.user.username}")
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Allow 'user' to be editable only when creating (not on edit)"""
+        readonly = list(self.readonly_fields)
+        if obj:  # Editing existing
+            if 'user' not in readonly:
+                readonly.append('user')
+        return readonly
     
     def user_badge(self, obj):
         return format_html(
@@ -186,7 +196,8 @@ class HRProfileAdmin(admin.ModelAdmin):
         """Optimize queryset and show pending approvals first"""
         qs = super().get_queryset(request)
         # Only select_related user, not approved_by (can be null)
-        return qs.select_related('user').order_by('is_approved', '-approval_requested_at')
+        from django.db.models import Case, When, Value, BooleanField
+        return qs.select_related('user').order_by('is_approved', 'created_at')
 
 @admin.register(Document, site=custom_admin)
 class DocumentAdmin(admin.ModelAdmin):
