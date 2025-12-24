@@ -461,10 +461,11 @@ def hr_dashboard(request):
             'user': request.user
         })
     
-    # Get all user profiles (students) - EXCLUDE HR USERS
+    # Get all user profiles (students) - EXCLUDE HR USERS AND ADMIN/STAFF USERS
     # Filter out users who have HR profiles
     hr_user_ids = HRProfile.objects.values_list('user_id', flat=True)
-    students = UserProfile.objects.select_related('user').exclude(user_id__in=hr_user_ids)
+    # Only show actual student profiles (exclude admin, staff, superuser accounts)
+    students = UserProfile.objects.select_related('user').exclude(user_id__in=hr_user_ids).exclude(user__is_staff=True).exclude(user__is_superuser=True)
     
     # Filtering
     branch_filter = request.GET.get('branch', '')
@@ -528,6 +529,11 @@ def student_detail(request, user_id):
         return redirect('dashboard')
     
     student = get_object_or_404(UserProfile, user_id=user_id)
+    
+    # Prevent access to admin/staff/superuser profiles
+    if student.user.is_staff or student.user.is_superuser:
+        messages.error(request, 'You do not have access to this profile.')
+        return redirect('hr_dashboard')
     
     # Process skills - split by comma
     if student.skills:
