@@ -25,6 +25,13 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_filter = ['branch', 'degree', 'gender', 'year_of_study', 'admission_year', 'cgpa', 'date_of_birth']
     readonly_fields = ('user', 'created_at')
     
+    def get_queryset(self, request):
+        """Exclude HR accounts from UserProfile list (show only student profiles)"""
+        qs = super().get_queryset(request)
+        # Filter out users who have HR profiles
+        hr_user_ids = HRProfile.objects.values_list('user_id', flat=True)
+        return qs.exclude(user_id__in=hr_user_ids)
+    
     fieldsets = (
         ('User Info', {'fields': ('user', 'created_at')}),
         ('Personal Details', {'fields': ('middle_name', 'date_of_birth', 'gender', 'phone', 'address', 'city', 'state', 'pincode', 'profile_photo')}),
@@ -235,6 +242,14 @@ class HRProfileAdmin(admin.ModelAdmin):
         }),
     )
     
+    def save_model(self, request, obj, form, change):
+        """Ensure HR account is properly configured as staff and not a student"""
+        if not change:  # Only on creation
+            # Make HR user a staff member
+            obj.user.is_staff = True
+            obj.user.save()
+        super().save_model(request, obj, form, change)
+    
     def user_badge(self, obj):
         return format_html(
             '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">👤 {}</span>',
@@ -419,9 +434,35 @@ class EmailOTPAdmin(admin.ModelAdmin):
 # Register User model with custom delete functionality
 @admin.register(User, site=custom_admin)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['username', 'first_name', 'last_name', 'email', 'is_staff', 'is_active']
+    list_display = ['username_with_type', 'first_name', 'last_name', 'email', 'account_type_badge', 'is_active']
     search_fields = ['username', 'first_name', 'last_name', 'email']
     list_filter = ['is_staff', 'is_active', 'date_joined']
+    
+    def username_with_type(self, obj):
+        return format_html(
+            '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">👤 {}</span>',
+            obj.username
+        )
+    username_with_type.short_description = 'Username'
+    
+    def account_type_badge(self, obj):
+        """Show whether this is an HR or Student account"""
+        has_hr_profile = HRProfile.objects.filter(user=obj).exists()
+        has_student_profile = UserProfile.objects.filter(user=obj).exists()
+        
+        if has_hr_profile:
+            return format_html(
+                '<span style="background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">👔 HR Account</span>'
+            )
+        elif has_student_profile:
+            return format_html(
+                '<span style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">🎓 Student Account</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background: #95a5a6; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">❓ No Profile</span>'
+            )
+    account_type_badge.short_description = 'Account Type'
     
     def has_delete_permission(self, request, obj=None):
         """Allow superuser to delete users"""
