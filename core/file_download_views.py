@@ -50,10 +50,11 @@ def download_resume(request):
         presigned_url = generate_presigned_url(resume_path, expiration=300)
         
         if not presigned_url:
+            logger.warning(f'Failed to generate URL for {resume_path}')
             return JsonResponse({
-                'error': 'Failed to generate download link',
-                'status': 500
-            }, status=500)
+                'error': 'File not accessible',
+                'status': 404
+            }, status=404)
         
         # Log download attempt (no URL or bucket names)
         logger.info(f'Resume download initiated by user {request.user.id}')
@@ -128,17 +129,21 @@ def download_profile_photo(request):
                 'status': 404
             }, status=404)
         
-        # Get photo file path
+        # Get photo file path (this is the S3 key)
         photo_path = profile.profile_photo.name
+        
+        # Debug logging (no sensitive data)
+        logger.debug(f'Generating presigned URL for file: {photo_path}')
         
         # Generate presigned URL (5 min validity)
         presigned_url = generate_presigned_url(photo_path, expiration=300)
         
         if not presigned_url:
+            logger.warning(f'Failed to generate URL for {photo_path}')
             return JsonResponse({
-                'error': 'Failed to generate download link',
-                'status': 500
-            }, status=500)
+                'error': 'File not accessible',
+                'status': 404
+            }, status=404)
         
         # Log download attempt (no URL or bucket names)
         logger.info(f'Profile photo download initiated by user {request.user.id}')
@@ -156,7 +161,7 @@ def download_profile_photo(request):
             'status': 404
         }, status=404)
     except Exception as e:
-        logger.error('Error generating profile photo download URL')
+        logger.error(f'Error generating profile photo download URL: {str(e)}')
         return JsonResponse({
             'error': 'Server error processing request',
             'status': 500
