@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.views import LoginView
 from django.contrib import messages
 from django.db.models import Q
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -18,6 +19,27 @@ from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm
 
 User = get_user_model()
 logger = logging.getLogger('core')
+
+
+class StudentLoginView(LoginView):
+    """Custom login view that blocks HR and staff accounts from logging in as students"""
+    template_name = 'registration/login.html'
+    
+    def post(self, request, *args, **kwargs):
+        # Get the form from parent
+        response = super().post(request, *args, **kwargs)
+        
+        # Check if login was successful by checking if user is authenticated
+        if request.user.is_authenticated:
+            # Block HR and staff users from logging in as students
+            if request.user.is_staff or request.user.is_superuser or hasattr(request.user, 'hr_profile'):
+                # Logout the user immediately
+                logout(request)
+                messages.error(request, 'HR and Staff accounts must use the HR login page. Please login at /hr/login/')
+                return redirect('login')
+        
+        return response
+
 
 def send_hr_approval_email(hr_profile, approval_token):
     """
