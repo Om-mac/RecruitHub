@@ -26,11 +26,10 @@ class UserProfileAdmin(admin.ModelAdmin):
     readonly_fields = ('user', 'created_at')
     
     def get_queryset(self, request):
-        """Exclude HR accounts from UserProfile list (show only student profiles)"""
+        """Show only student profiles - exclude all staff/superuser/HR accounts"""
         qs = super().get_queryset(request)
-        # Filter out users who have HR profiles
-        hr_user_ids = HRProfile.objects.values_list('user_id', flat=True)
-        return qs.exclude(user_id__in=hr_user_ids)
+        # Exclude users who are staff or superuser (admins and HR staff)
+        return qs.exclude(user__is_staff=True).exclude(user__is_superuser=True).select_related('user')
     
     fieldsets = (
         ('User Info', {'fields': ('user', 'created_at')}),
@@ -276,25 +275,32 @@ class HRProfileAdmin(admin.ModelAdmin):
     approval_status_badge.short_description = 'Status'
     
     def approval_status_info(self, obj):
-        if obj.is_approved:
-            return format_html(
-                '<p style="color: #27ae60; font-weight: bold;">✓ Account Approved</p>' +
-                f'<p>Approved by: {obj.approved_by.username if obj.approved_by else "System"}</p>' +
-                f'<p>Approved at: {obj.approved_at.strftime("%Y-%m-%d %H:%M:%S") if obj.approved_at else "N/A"}</p>'
-            )
-        else:
-            return format_html(
-                '<p style="color: #e74c3c; font-weight: bold;">⏳ Account Pending Approval</p>' +
-                f'<p>Requested at: {obj.approval_requested_at.strftime("%Y-%m-%d %H:%M:%S") if obj.approval_requested_at else "N/A"}</p>' +
-                '<p><a class="button" href="/admin/approve-hr/' + (obj.approval_token or '') + '/" style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none; display: inline-block; margin-right: 10px;">✓ Approve</a>' +
-                '<a class="button" href="/admin/reject-hr/' + (obj.approval_token or '') + '/" style="background: #e74c3c; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none; display: inline-block;">✗ Reject</a></p>'
-            )
+        try:
+            if obj.is_approved:
+                approved_by_username = obj.approved_by.username if obj.approved_by else "System"
+                approved_at_str = obj.approved_at.strftime("%Y-%m-%d %H:%M:%S") if obj.approved_at else "N/A"
+                return format_html(
+                    '<p style="color: #27ae60; font-weight: bold;">✓ Account Approved</p>' +
+                    f'<p>Approved by: {approved_by_username}</p>' +
+                    f'<p>Approved at: {approved_at_str}</p>'
+                )
+            else:
+                requested_at_str = obj.approval_requested_at.strftime("%Y-%m-%d %H:%M:%S") if obj.approval_requested_at else "N/A"
+                return format_html(
+                    '<p style="color: #e74c3c; font-weight: bold;">⏳ Account Pending Approval</p>' +
+                    f'<p>Requested at: {requested_at_str}</p>' +
+                    '<p><a class="button" href="/admin/approve-hr/' + (obj.approval_token or '') + '/" style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none; display: inline-block; margin-right: 10px;">✓ Approve</a>' +
+                    '<a class="button" href="/admin/reject-hr/' + (obj.approval_token or '') + '/" style="background: #e74c3c; color: white; padding: 8px 12px; border-radius: 4px; text-decoration: none; display: inline-block;">✗ Reject</a></p>'
+                )
+        except Exception as e:
+            return format_html('<p style="color: #e74c3c;">Error loading approval info</p>')
     approval_status_info.short_description = 'Approval Information'
     
     def get_queryset(self, request):
-        """Optimize queryset with select_related and show pending approvals first"""
+        """Optimize queryset and show pending approvals first"""
         qs = super().get_queryset(request)
-        return qs.select_related('user', 'approved_by').order_by('is_approved', '-approval_requested_at')
+        # Only select_related user, not approved_by (can be null)
+        return qs.select_related('user').order_by('is_approved', '-approval_requested_at')
 
 @admin.register(Document, site=custom_admin)
 class DocumentAdmin(admin.ModelAdmin):
