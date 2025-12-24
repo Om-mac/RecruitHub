@@ -195,14 +195,15 @@ SECURE_CONTENT_SECURITY_POLICY = {
     "font-src": ("'self'", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"),
 }
 COOKIE_HTTPONLY = True
-COOKIE_SAMESITE = 'Strict'
+COOKIE_SAMESITE = 'Lax'  # Changed from Strict to allow form submissions
 
 # Session security settings
 SESSION_COOKIE_AGE = 3600  # 1 hour session timeout
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_SAVE_EVERY_REQUEST = True  # Update session expiry on every request
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False  # Must be False for CSRF token in forms to work
+CSRF_COOKIE_SAMESITE = 'Lax'  # Prevent CSRF but allow form submission
 CSRF_COOKIE_AGE = 31449600  # 1 year
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://vakverse.com,https://*.vakverse.com').split(',')
 
