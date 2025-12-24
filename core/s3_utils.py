@@ -36,7 +36,7 @@ def generate_presigned_url(file_path, expiration=300):
     Generate presigned URL for S3 file
     
     Args:
-        file_path: S3 object key (e.g., 'resumes/user123/resume.pdf')
+        file_path: S3 object key (e.g., 'profile_photos/file.jpg')
         expiration: URL validity in seconds (default: 300 = 5 minutes)
     
     Returns:
@@ -61,13 +61,16 @@ def generate_presigned_url(file_path, expiration=300):
             # Fallback to local storage if S3 client unavailable
             return f'/media/{file_path}'
         
+        # Add media/ prefix if not already present (django-storages stores files under media/)
+        s3_key = file_path if file_path.startswith('media/') else f'media/{file_path}'
+        
         # Try to generate presigned URL
         try:
             presigned_url = s3_client.generate_presigned_url(
                 'get_object',
                 Params={
                     'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                    'Key': file_path,
+                    'Key': s3_key,
                 },
                 ExpiresIn=expiration,
             )
