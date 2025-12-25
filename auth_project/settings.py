@@ -154,12 +154,12 @@ if not DEBUG and 'postgresql' in DATABASES['default'].get('ENGINE', ''):
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        \"NAME\": \"django.contrib.auth.password_validation.UserAttributeSimilarityValidator\",
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        \"NAME\": \"django.contrib.auth.password_validation.MinimumLengthValidator\",
-        \"OPTIONS\": {
-            \"min_length\": 10,  # Increased from default 8
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {
+            "min_length": 10,  # Increased from default 8
         }
     },
     {
