@@ -252,8 +252,9 @@ class SecurityHeadersMiddleware:
                     response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
                 if 'Permissions-Policy' not in response:
                     response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
-                if 'Strict-Transport-Security' not in response and not request.is_secure() == False:
-                    response['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+                # HSTS header with preload directive (required for hstspreload.org)
+                if 'Strict-Transport-Security' not in response:
+                    response['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
             except (AttributeError, TypeError) as e:
                 logger.debug(f"Could not set security headers: {e}")
         
