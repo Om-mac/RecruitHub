@@ -114,11 +114,18 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Get retry-after from meta tag or default to 900 seconds (15 minutes)
-            const retryAfter = parseInt(document.querySelector('meta[name="retry-after"]')?.content || '900');
+            // Calculate remaining time based on rate limit expiration
+            let remainingSeconds = 900;  // Default: 15 minutes
             
-            // Start rate limit timer
-            const timer = new CountdownTimer('retryTimer', retryAfter, function() {
+            {% if expires_at %}
+                const expiresAt = {{ expires_at }};  // Unix timestamp from server
+                const currentTime = Date.now() / 1000;  // Convert to seconds
+                const secondsRemaining = Math.floor(expiresAt - currentTime);
+                remainingSeconds = Math.max(0, secondsRemaining);
+            {% endif %}
+            
+            // Start rate limit timer with calculated remaining time
+            const timer = new CountdownTimer('retryTimer', remainingSeconds, function() {
                 // Redirect back when timer expires
                 window.location.href = '{{ redirect_url|default:"/" }}';
             });
