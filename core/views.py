@@ -389,6 +389,14 @@ def hr_register_step2_verify_otp(request):
         messages.error(request, 'Please start from email entry.')
         return redirect('hr_register_step1_email')
     
+    # Get OTP creation time for timer
+    otp_created_at = None
+    try:
+        otp_obj = EmailOTP.objects.get(email=email)
+        otp_created_at = otp_obj.created_at.timestamp()  # Unix timestamp
+    except EmailOTP.DoesNotExist:
+        pass
+    
     # Get client IP for rate limiting
     client_ip = get_client_ip(request)
     
@@ -461,7 +469,7 @@ def hr_register_step2_verify_otp(request):
     else:
         form = OTPForm()
     
-    return render(request, 'core/hr_register_step2_verify_otp.html', {'form': form, 'email': email})
+    return render(request, 'core/hr_register_step2_verify_otp.html', {'form': form, 'email': email, 'otp_created_at': otp_created_at})
 
 
 def hr_register_step3_create_account(request):
@@ -725,6 +733,14 @@ def password_reset_verify_otp(request):
         messages.error(request, 'Please start from email entry.')
         return redirect('password_reset_request')
     
+    # Get OTP creation time for timer
+    otp_created_at = None
+    try:
+        otp_obj = EmailOTP.objects.get(email=email)
+        otp_created_at = otp_obj.created_at.timestamp()  # Unix timestamp
+    except EmailOTP.DoesNotExist:
+        pass
+    
     # Get client IP for rate limiting
     client_ip = get_client_ip(request)
     
@@ -795,7 +811,7 @@ def password_reset_verify_otp(request):
     else:
         form = OTPForm()
     
-    return render(request, 'core/password_reset_verify_otp.html', {'form': form, 'email': email})
+    return render(request, 'core/password_reset_verify_otp.html', {'form': form, 'email': email, 'otp_created_at': otp_created_at})
 
 
 def password_reset_confirm(request):
@@ -957,6 +973,14 @@ def register_step2_verify_otp(request):
         messages.error(request, 'Please start registration process again.')
         return redirect('register_step1_email')
     
+    # Get OTP creation time for timer
+    otp_created_at = None
+    try:
+        otp_obj = EmailOTP.objects.get(email=email)
+        otp_created_at = otp_obj.created_at.timestamp()  # Unix timestamp
+    except EmailOTP.DoesNotExist:
+        pass
+    
     if request.method == 'POST':
         form = OTPForm(request.POST)
         if form.is_valid():
@@ -1003,7 +1027,7 @@ def register_step2_verify_otp(request):
     else:
         form = OTPForm()
     
-    return render(request, 'core/register_step2_verify_otp.html', {'form': form, 'email': email})
+    return render(request, 'core/register_step2_verify_otp.html', {'form': form, 'email': email, 'otp_created_at': otp_created_at})
 
 
 def register_step3_create_account(request):

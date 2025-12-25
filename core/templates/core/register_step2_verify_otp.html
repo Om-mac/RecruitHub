@@ -145,8 +145,18 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Start OTP validity timer (10 minutes = 600 seconds)
-            const otpTimer = new CountdownTimer('otpTimer', 600, function() {
+            // Calculate remaining time based on OTP creation time
+            let remainingSeconds = 600;  // Default: 10 minutes
+            
+            {% if otp_created_at %}
+                const otpCreatedAt = {{ otp_created_at }};  // Unix timestamp from server
+                const currentTime = Date.now() / 1000;  // Convert to seconds
+                const elapsedSeconds = Math.floor(currentTime - otpCreatedAt);
+                remainingSeconds = Math.max(0, 600 - elapsedSeconds);
+            {% endif %}
+            
+            // Start OTP validity timer with calculated remaining time
+            const otpTimer = new CountdownTimer('otpTimer', remainingSeconds, function() {
                 showNotification('OTP has expired. Please request a new one.', 'danger');
             });
             otpTimer.start();
