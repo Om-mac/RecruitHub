@@ -106,7 +106,7 @@ EMAIL_PORT=587
 EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
-DEFAULT_FROM_EMAIL=noreply@yourdomain.com
+DEFAULT_FROM_EMAIL=noreply@vakverse.com
 ```
 
 **Note:** For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833), not your regular password.

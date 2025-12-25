@@ -271,7 +271,7 @@ path('admin/reject-hr/<str:token>/', views.reject_hr_account, name='reject_hr_ac
 For **Production (Render/Deployment):**
 ```
 HR_APPROVAL_EMAIL=omtapdiya75@gmail.com  # Admin email for approvals
-SITE_URL=https://yourdomain.com          # For approval links in emails
+SITE_URL=https://vakverse.com          # For approval links in emails
 ```
 
 For **Development (Local):**

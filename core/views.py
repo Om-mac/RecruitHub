@@ -1303,3 +1303,8 @@ def forgot_username_hr(request):
 def privacy_policy(request):
     """Display privacy policy page"""
     return render(request, 'core/privacy_policy.html')
+
+
+def terms_of_service(request):
+    """Display terms of service page"""
+    return render(request, 'core/terms_of_service.html')

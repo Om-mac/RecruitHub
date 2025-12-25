@@ -215,7 +215,7 @@ You can request account deletion. Upon deletion:
 - Data retained for legal/compliance reasons as noted below
 
 **Process:**
-- Contact support@yourdomain.com
+- Contact support@vakverse.com
 - Confirm your identity
 - Account deletion within 30 days
 

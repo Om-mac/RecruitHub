@@ -61,7 +61,7 @@ ALLOWED_HOSTS = []
 
 **To (if deploying locally for testing):**
 ```python
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'yourdomain.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'vakverse.com', 'www.vakverse.com']
 ```
 
 **Or for DigitalOcean:**

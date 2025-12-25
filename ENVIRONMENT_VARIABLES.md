@@ -72,8 +72,8 @@ ALLOWED_HOSTS = yourdomain.com,www.yourdomain.com,recruitapp-backend.onrender.co
 ```
 
 **Domains to include:**
-- Your main domain: `yourdomain.com`
-- WWW version: `www.yourdomain.com`
+- Your main domain: `vakverse.com`
+- WWW version: `www.vakverse.com`
 - Render backup URL: `recruitapp-backend.onrender.com`
 
 **Set on Render:**
@@ -193,7 +193,7 @@ ALLOWED_HOSTS = yourdomain.com,www.yourdomain.com,recruitapp-backend.onrender.co
 |----------|-----------|---------------|-----------|
 | SECRET_KEY | ✅ YES | `ciamvzsh2g=...` | Django security |
 | DEBUG | ✅ YES | `False` | Error pages |
-| ALLOWED_HOSTS | ✅ YES | `yourdomain.com` | Host validation |
+| ALLOWED_HOSTS | ✅ YES | `vakverse.com` | Host validation |
 | DATABASE_URL | ❌ Optional | `postgresql://...` | Database connection |
 | EMAIL_HOST | ❌ Optional | `smtp.gmail.com` | Email sending |
 | EMAIL_PORT | ❌ Optional | `587` | Email port |
@@ -209,7 +209,7 @@ For local testing, create `.env` file in project root:
 ```env
 SECRET_KEY=ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3
 DEBUG=False
-ALLOWED_HOSTS=localhost,127.0.0.1,yourdomain.com
+ALLOWED_HOSTS=localhost,127.0.0.1,vakverse.com
 ```
 
 **Important:** Add `.env` to `.gitignore` (already done!)
@@ -332,7 +332,7 @@ EMAIL_HOST_PASSWORD = app-password
    - Render auto-deploys on variable change
 
 4. **Test Your App**
-   - Visit: https://yourdomain.com
+   - Visit: https://vakverse.com
 
 ---
 

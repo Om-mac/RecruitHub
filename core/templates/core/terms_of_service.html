@@ -1,0 +1,631 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Terms & Conditions - RecruitHub{% endblock %}
+
+{% block content %}
+<style>
+    .terms-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 60px 20px;
+        margin-bottom: 40px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .terms-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+
+    .terms-header p {
+        font-size: 1.1rem;
+        opacity: 0.95;
+    }
+
+    .terms-content {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+
+    .toc-container {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 25px;
+        margin-bottom: 40px;
+        border-radius: 8px;
+    }
+
+    .toc-container h3 {
+        color: #667eea;
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+
+    .toc-container ol {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    .toc-container li {
+        margin-bottom: 8px;
+        line-height: 1.6;
+    }
+
+    .toc-container a {
+        color: #667eea;
+        text-decoration: none;
+        transition: color 0.3s;
+    }
+
+    .toc-container a:hover {
+        color: #764ba2;
+        text-decoration: underline;
+    }
+
+    .section {
+        margin-bottom: 40px;
+    }
+
+    .section h2 {
+        color: #667eea;
+        font-size: 1.8rem;
+        margin-top: 0;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #667eea;
+        font-weight: 600;
+    }
+
+    .section h3 {
+        color: #764ba2;
+        font-size: 1.3rem;
+        margin-top: 20px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .section p {
+        font-size: 1rem;
+        line-height: 1.8;
+        color: #333;
+        margin-bottom: 15px;
+    }
+
+    .section ul, .section ol {
+        margin-left: 20px;
+        margin-bottom: 15px;
+        line-height: 1.8;
+    }
+
+    .section li {
+        margin-bottom: 10px;
+        color: #555;
+    }
+
+    .alert-box {
+        background: #e8f4f8;
+        border-left: 4px solid #17a2b8;
+        padding: 15px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+        color: #0c5460;
+    }
+
+    .alert-warning {
+        background: #fff3cd;
+        border-left-color: #ffc107;
+        color: #856404;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+    }
+
+    .terms-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .terms-table thead {
+        background: #667eea;
+        color: white;
+    }
+
+    .terms-table th {
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .terms-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .terms-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .highlight-box {
+        background: #f0f4ff;
+        border: 1px solid #d0deff;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+    }
+
+    .highlight-box strong {
+        color: #667eea;
+    }
+
+    .contact-card {
+        background: white;
+        border: 1px solid #ddd;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+
+    .contact-card p {
+        margin: 5px 0;
+    }
+
+    .terms-footer {
+        background: #f8f9fa;
+        border-top: 1px solid #ddd;
+        padding: 30px 20px;
+        margin-top: 60px;
+        text-align: center;
+        border-radius: 8px;
+    }
+
+    .terms-footer p {
+        color: #666;
+        font-size: 0.95rem;
+        margin: 5px 0;
+    }
+
+    .back-to-top {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 10px 20px;
+        background: #667eea;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+
+    .back-to-top:hover {
+        background: #764ba2;
+        text-decoration: none;
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .terms-header h1 {
+            font-size: 2rem;
+        }
+
+        .section h2 {
+            font-size: 1.5rem;
+        }
+
+        .toc-container {
+            padding: 15px;
+        }
+    }
+</style>
+
+<div class="terms-header">
+    <div class="container">
+        <h1>Terms & Conditions</h1>
+        <p>Last Updated: December 25, 2025 | Version 1.0</p>
+    </div>
+</div>
+
+<div class="terms-content">
+    <!-- Table of Contents -->
+    <div class="toc-container">
+        <h3>📋 Quick Navigation</h3>
+        <ol>
+            <li><a href="#section-1">Eligibility</a></li>
+            <li><a href="#section-2">Account Registration & Security</a></li>
+            <li><a href="#section-3">Student Responsibilities</a></li>
+            <li><a href="#section-4">HR / Recruiter Responsibilities</a></li>
+            <li><a href="#section-5">Admin Rights & Platform Control</a></li>
+            <li><a href="#section-6">Data Usage & Privacy</a></li>
+            <li><a href="#section-7">Prohibited Activities</a></li>
+            <li><a href="#section-8">Account Suspension & Termination</a></li>
+            <li><a href="#section-9">Intellectual Property Rights</a></li>
+            <li><a href="#section-10">Limitation of Liability</a></li>
+            <li><a href="#section-11">Changes to Terms</a></li>
+            <li><a href="#section-12">Third-Party Services</a></li>
+            <li><a href="#section-13">Governing Law & Jurisdiction</a></li>
+            <li><a href="#section-14">Dispute Resolution</a></li>
+            <li><a href="#section-15">Contact Information</a></li>
+        </ol>
+    </div>
+
+    <!-- Introduction -->
+    <div class="section">
+        <p style="font-size: 1.1rem; line-height: 1.8; color: #555;">
+            <strong>Welcome to RecruitHub</strong> — a campus recruitment and placement management system designed for educational institutions, students, and approved recruiters (HR).
+        </p>
+        <p>
+            By accessing or using RecruitHub, you agree to be bound by these Terms & Conditions. If you do not agree, please do not use the Platform.
+        </p>
+        <div class="alert-box alert-warning">
+            <strong>⚠️ Important:</strong> These Terms work alongside our <a href="{% url 'privacy_policy' %}" style="color: inherit; text-decoration: underline;">Privacy Policy</a>. Please read both documents.
+        </div>
+    </div>
+
+    <!-- Section 1: Eligibility -->
+    <div class="section" id="section-1">
+        <h2>1. Eligibility</h2>
+        <p>
+            The Platform is intended for students of participating educational institutions, approved HR/recruiters, and authorized administrators.
+        </p>
+        <ul>
+            <li>You must provide accurate and complete information during registration</li>
+            <li>Access to HR features is subject to admin approval</li>
+            <li>You must be at least 18 years old to use this Platform</li>
+            <li>By registering, you represent that you are legally authorized to enter into this agreement</li>
+        </ul>
+    </div>
+
+    <!-- Section 2: Account Registration & Security -->
+    <div class="section" id="section-2">
+        <h2>2. Account Registration & Security</h2>
+        
+        <h3>Your Responsibilities</h3>
+        <ul>
+            <li>You are responsible for maintaining the confidentiality of your account credentials</li>
+            <li>You must not share your account with others or allow unauthorized access</li>
+            <li>You must immediately notify the admin if you suspect unauthorized access or security breach</li>
+            <li>You agree to provide accurate, complete, and current information during registration</li>
+        </ul>
+
+        <h3>Account Management</h3>
+        <ul>
+            <li>The Platform reserves the right to disable accounts that violate these Terms or pose a security risk</li>
+            <li>Accounts may be suspended or terminated without prior notice in cases of severe violation</li>
+            <li>You are liable for all activities that occur under your account</li>
+        </ul>
+    </div>
+
+    <!-- Section 3: Student Responsibilities -->
+    <div class="section" id="section-3">
+        <h2>3. Student Responsibilities</h2>
+        
+        <p>By using RecruitHub as a student, you agree that:</p>
+        <ul>
+            <li>All academic, personal, and professional information provided is true, accurate, and current</li>
+            <li>Uploaded resumes, documents, certifications, and portfolios are genuine and authentic</li>
+            <li>You have the legal right to share the information and files you upload</li>
+            <li><strong>The Platform does NOT guarantee job placement, interviews, or recruitment opportunities</strong></li>
+            <li>Job offers and placements are the sole decision of recruiters and are independent of the Platform</li>
+        </ul>
+
+        <div class="alert-box alert-danger">
+            <strong>⚠️ Warning:</strong> Misrepresentation of data, falsified documents, or fraudulent information may result in account suspension, termination, notification to your institution, and legal action.
+        </div>
+
+        <h3>Profile Information</h3>
+        <ul>
+            <li>You maintain full control over your profile visibility and information</li>
+            <li>You can update, modify, or delete your profile information at any time</li>
+            <li>Recruiters can only access information that you have shared publicly</li>
+        </ul>
+    </div>
+
+    <!-- Section 4: HR / Recruiter Responsibilities -->
+    <div class="section" id="section-4">
+        <h2>4. HR / Recruiter Responsibilities</h2>
+        
+        <h3>Approved HR Users</h3>
+        <p>Approved HR users agree that they will:</p>
+        <ul>
+            <li><strong>Use student data solely and exclusively for legitimate recruitment purposes</strong></li>
+            <li>Not share, sell, lease, scrape, or misuse student information for any other purpose</li>
+            <li>Respect data privacy, confidentiality, and security standards</li>
+            <li>Comply with all applicable laws, regulations, and institutional policies</li>
+            <li>Use the Platform in accordance with anti-discrimination and employment laws</li>
+        </ul>
+
+        <h3>Data Access</h3>
+        <ul>
+            <li>HR access is granted only after admin approval and email verification</li>
+            <li>Recruiters can view only student profiles and information made available through the Platform</li>
+            <li><strong>Automated data scraping, downloading in bulk, or unauthorized data extraction is strictly prohibited</strong></li>
+        </ul>
+
+        <h3>Account Revocation</h3>
+        <p>The Platform reserves the right to revoke HR access at any time without prior notice if:</p>
+        <ul>
+            <li>These Terms are violated</li>
+            <li>Data misuse is detected</li>
+            <li>The recruiter's organization fails to comply with policies</li>
+            <li>Security risks are identified</li>
+        </ul>
+    </div>
+
+    <!-- Section 5: Admin Rights -->
+    <div class="section" id="section-5">
+        <h2>5. Admin Rights & Platform Control</h2>
+        
+        <p>Administrators reserve the right to:</p>
+        <ul>
+            <li>Approve, reject, suspend, or permanently delete any account without prior notice</li>
+            <li>Modify, restrict, hide, or remove any content that violates these Terms</li>
+            <li>Update platform features, policies, and functionality</li>
+            <li>Monitor user activity to ensure compliance, security, and proper use</li>
+            <li>Access and review account information and usage logs</li>
+            <li>Enforce these Terms and take appropriate action against violators</li>
+        </ul>
+    </div>
+
+    <!-- Section 6: Data Usage & Privacy -->
+    <div class="section" id="section-6">
+        <h2>6. Data Usage & Privacy</h2>
+        
+        <h3>Data Collection & Processing</h3>
+        <ul>
+            <li>Personal data is collected and processed as described in the <a href="{% url 'privacy_policy' %}">Privacy Policy</a></li>
+            <li>By using the Platform, you consent to the collection and processing of your data</li>
+            <li>Data is stored securely using industry-standard encryption and security practices</li>
+        </ul>
+
+        <h3>Data Sharing</h3>
+        <ul>
+            <li>Data may be shared with approved HR users and administrators for legitimate recruitment purposes</li>
+            <li><strong>Data is NEVER sold to third parties</strong></li>
+            <li>HR users are bound by confidentiality agreements and these Terms</li>
+            <li>Only information you have chosen to share is visible to recruiters</li>
+        </ul>
+
+        <h3>User Rights</h3>
+        <ul>
+            <li>Users may request data correction or deletion by contacting support</li>
+            <li>Users may request a copy of their data in portable format</li>
+            <li>Users may opt-out of certain communications (except transactional emails)</li>
+        </ul>
+    </div>
+
+    <!-- Section 7: Prohibited Activities -->
+    <div class="section" id="section-7">
+        <h2>7. Prohibited Activities</h2>
+        
+        <p>The following activities are <strong>strictly prohibited</strong> on the Platform:</p>
+
+        <h3>🔒 Security & Access</h3>
+        <ul>
+            <li>Hacking, attempting unauthorized access, or bypassing security controls</li>
+            <li>Using automated tools to access or scrape data</li>
+            <li>Reverse engineering or attempting to understand proprietary systems</li>
+            <li>Port scanning, vulnerability testing, or security probing without authorization</li>
+        </ul>
+
+        <h3>📋 Data Misuse</h3>
+        <ul>
+            <li>Data scraping, automated data collection, or bulk downloading</li>
+            <li>Selling, leasing, or sharing student/recruiter data with unauthorized parties</li>
+            <li>Using student data for purposes other than recruitment (e.g., marketing, spam)</li>
+            <li>Creating fake profiles or impersonating others</li>
+        </ul>
+
+        <h3>⚠️ Content & Conduct</h3>
+        <ul>
+            <li>Uploading malicious files, malware, or harmful content</li>
+            <li>Spamming, phishing, or sending fraudulent communications</li>
+            <li>Posting offensive, discriminatory, or abusive content</li>
+            <li>Harassment, bullying, or threatening behavior toward other users</li>
+        </ul>
+
+        <div class="alert-box alert-danger">
+            Violation of these prohibited activities may result in immediate account suspension or termination, notification to your organization, legal action if applicable, and law enforcement involvement for serious violations.
+        </div>
+    </div>
+
+    <!-- Section 8: Account Suspension & Termination -->
+    <div class="section" id="section-8">
+        <h2>8. Account Suspension & Termination</h2>
+        
+        <h3>Grounds for Suspension</h3>
+        <p>Accounts may be suspended if:</p>
+        <ul>
+            <li>These Terms are violated</li>
+            <li>False, misleading, or fraudulent information is provided</li>
+            <li>There is misuse of platform data or features</li>
+            <li>Security risks or threats are identified</li>
+            <li>Payment (if applicable) is not received</li>
+        </ul>
+
+        <h3>Grounds for Termination</h3>
+        <p>Accounts may be permanently terminated if:</p>
+        <ul>
+            <li>Suspension violations continue after warning</li>
+            <li>Severe security breach or data misuse occurs</li>
+            <li>Criminal activity is suspected</li>
+            <li>Admin deems termination necessary for platform security</li>
+        </ul>
+
+        <h3>Data After Termination</h3>
+        <ul>
+            <li>Personal data will be deleted according to the data retention policy in the Privacy Policy</li>
+            <li>Data required by law or for security audit may be retained longer</li>
+            <li>You may request final data export before termination is finalized</li>
+        </ul>
+    </div>
+
+    <!-- Section 9: Intellectual Property -->
+    <div class="section" id="section-9">
+        <h2>9. Intellectual Property Rights</h2>
+        
+        <h3>Platform Content</h3>
+        <ul>
+            <li>All content on the Platform, including software, design, and features, is owned by or licensed to RecruitHub</li>
+            <li>You may not copy, modify, distribute, or reverse engineer any Platform content</li>
+            <li>Your use is limited to personal, non-commercial purposes</li>
+        </ul>
+
+        <h3>User Content</h3>
+        <ul>
+            <li>You retain all rights to content you upload (resume, portfolio, photos, etc.)</li>
+            <li>By uploading, you grant the Platform a license to store, display, and share with recruiters</li>
+            <li>The Platform is not responsible for copyright or intellectual property claims</li>
+        </ul>
+    </div>
+
+    <!-- Section 10: Limitation of Liability -->
+    <div class="section" id="section-10">
+        <h2>10. Limitation of Liability</h2>
+        
+        <h3>"As Is" Basis</h3>
+        <p>RecruitHub is provided on an <strong>"as is"</strong> and <strong>"as available"</strong> basis without warranties.</p>
+        <ul>
+            <li>The Platform does not warrant uninterrupted service, error-free operation, or security</li>
+            <li>The Platform is hosted on cloud infrastructure and may experience downtime</li>
+            <li>The Platform is not responsible for third-party service outages or performance</li>
+        </ul>
+
+        <h3>No Responsibility For</h3>
+        <ul>
+            <li><strong>RecruitHub is NOT responsible for hiring decisions, interview outcomes, or job offers</strong> made by recruiters</li>
+            <li><strong>The Platform does NOT guarantee interviews, offers, or placements</strong></li>
+            <li>The Platform is not responsible for recruiter conduct, promises, or violations</li>
+            <li>The Platform is not responsible for data loss, breaches at recruiter organizations, or third-party misuse</li>
+        </ul>
+
+        <h3>Limitation Of Damages</h3>
+        <p>To the maximum extent permitted by law:</p>
+        <ul>
+            <li>RecruitHub's total liability shall not exceed the amount paid by you (if any)</li>
+            <li>RecruitHub is not liable for indirect, incidental, special, or consequential damages</li>
+            <li>RecruitHub is not liable for lost profits, lost data, or business interruption</li>
+        </ul>
+    </div>
+
+    <!-- Section 11: Changes to Terms -->
+    <div class="section" id="section-11">
+        <h2>11. Changes to Terms</h2>
+        
+        <h3>Updates</h3>
+        <ul>
+            <li>These Terms may be updated at any time without prior notice</li>
+            <li>Changes will be posted on this page with an updated "Last Updated" date</li>
+            <li>Major changes may trigger email notification</li>
+        </ul>
+
+        <h3>Acceptance of Changes</h3>
+        <ul>
+            <li>Continued use of the Platform after updates constitutes acceptance of the revised Terms</li>
+            <li>If you do not accept new Terms, please stop using the Platform</li>
+            <li>Your rights are governed by the Terms in effect at the time of your use</li>
+        </ul>
+    </div>
+
+    <!-- Section 12: Third-Party Services -->
+    <div class="section" id="section-12">
+        <h2>12. Third-Party Services</h2>
+        
+        <p>The Platform uses third-party services:</p>
+        
+        <div class="highlight-box">
+            <p><strong>📧 Email Service (Resend):</strong> For sending OTP and notifications</p>
+            <p><strong>☁️ Cloud Storage (AWS S3):</strong> For storing uploaded files</p>
+            <p><strong>🖥️ Hosting (Render):</strong> For application hosting</p>
+            <p><strong>🗄️ Database (PostgreSQL):</strong> For data storage</p>
+        </div>
+
+        <p>
+            These services are subject to their own Terms and Privacy Policies. The Platform is not responsible for third-party services or their conduct.
+        </p>
+    </div>
+
+    <!-- Section 13: Governing Law -->
+    <div class="section" id="section-13">
+        <h2>13. Governing Law & Jurisdiction</h2>
+        
+        <p>
+            These Terms shall be governed by and interpreted in accordance with the laws of <strong>India</strong>, without regard to its conflict of law principles.
+        </p>
+
+        <h3>Jurisdiction</h3>
+        <ul>
+            <li>Exclusive jurisdiction for any legal proceeding lies with courts in the jurisdiction of the Platform operator's organization</li>
+            <li>You agree to submit to the jurisdiction of these courts</li>
+            <li>You waive any objection based on improper venue or forum non conveniens</li>
+        </ul>
+    </div>
+
+    <!-- Section 14: Dispute Resolution -->
+    <div class="section" id="section-14">
+        <h2>14. Dispute Resolution</h2>
+        
+        <h3>Informal Resolution</h3>
+        <p>Before filing a formal claim, parties agree to attempt resolution through:</p>
+        <ul>
+            <li>Direct communication with support</li>
+            <li>Good-faith negotiation</li>
+            <li>Mediation if necessary</li>
+        </ul>
+
+        <h3>Formal Claims</h3>
+        <ul>
+            <li>Claims must be filed within <strong>one year</strong> of the incident</li>
+            <li>Claims older than one year are barred</li>
+        </ul>
+    </div>
+
+    <!-- Section 15: Contact Information -->
+    <div class="section" id="section-15">
+        <h2>15. Contact Information</h2>
+        
+        <p>For questions, concerns, requests, or inquiries related to these Terms & Conditions:</p>
+
+        <div class="contact-card">
+            <p><strong>📧 Email:</strong> support@vakverse.com</p>
+            <p><strong>⏱️ Response Time:</strong> 30 days</p>
+            <p style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                Please include: your name and account details, description of your concern, and any relevant documentation.
+            </p>
+        </div>
+    </div>
+
+    <!-- Acceptance -->
+    <div class="section">
+        <div class="highlight-box" style="background: #e8f5e9; border-left-color: #4caf50;">
+            <h3 style="color: #2e7d32; margin-top: 0;">✓ Acceptance of Terms</h3>
+            <p>By creating an account, uploading information, or using any feature of RecruitHub, you confirm that you have:</p>
+            <ul style="margin-bottom: 0;">
+                <li>✓ Read these Terms & Conditions in full</li>
+                <li>✓ Understood all provisions and requirements</li>
+                <li>✓ Agreed to be bound by these Terms</li>
+                <li>✓ Acknowledged the limitations of liability</li>
+                <li>✓ Accepted the data usage practices</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="terms-footer">
+        <p><strong>© 2025 RecruitHub. All rights reserved.</strong></p>
+        <p>Last Updated: December 25, 2025 | Version 1.0</p>
+        <p style="margin-top: 15px;">
+            <a href="https://github.com" target="_blank" style="color: #667eea; text-decoration: none;">
+                View markdown version on GitHub
+            </a>
+        </p>
+        <a href="#" class="back-to-top">↑ Back to Top</a>
+    </div>
+</div>
+{% endblock %}
