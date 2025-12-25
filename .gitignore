@@ -35,6 +35,7 @@ db.sqlite3
 /static/
 !/static/favicon.*
 !/static/robots.txt
+!/static/js/
 .DS_Store
 
 # IDE
