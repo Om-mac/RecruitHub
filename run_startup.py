@@ -59,11 +59,11 @@ try:
     
     # Step 3: Create superuser from environment variables (one-time setup)
     print("\n[3/3] Setting up superuser from environment variables...")
-    admin_username = os.getenv('ADMIN_USERNAME')
-    admin_password = os.getenv('ADMIN_PASSWORD')
-    admin_email = os.getenv('ADMIN_EMAIL')
+    django_username = os.getenv('DJANGO_SUPERUSER_USERNAME')
+    django_password = os.getenv('DJANGO_SUPERUSER_PASSWORD')
+    django_email = os.getenv('DJANGO_SUPERUSER_EMAIL')
     
-    if admin_username and admin_password and admin_email:
+    if django_username and django_password and django_email:
         try:
             call_command('create_superuser_from_env', verbosity=2)
             print("✓ Superuser setup completed")
@@ -71,7 +71,8 @@ try:
             print(f"⚠️ Superuser setup error: {str(e)}")
             # Continue anyway - superuser might already exist
     else:
-        print("⚠️ Superuser environment variables not set (ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL)")
+        print("⚠️ Superuser environment variables not set")
+        print("   (DJANGO_SUPERUSER_USERNAME, DJANGO_SUPERUSER_PASSWORD, DJANGO_SUPERUSER_EMAIL)")
         print("   Skipping superuser creation. Set them later with: python manage.py create_superuser_from_env")
     
     print("\n" + "=" * 70)

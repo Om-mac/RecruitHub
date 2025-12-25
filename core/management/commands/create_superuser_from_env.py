@@ -1,15 +1,17 @@
 """
 Management command to create superuser from environment variables (one-time setup)
-Usage: python manage.py create_superuser_from_env
+Usage: python manage.py createsuperuser --noinput
 
-This command:
-1. Reads ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL from environment variables
-2. Creates or updates the superuser in the database
-3. After this, Django uses normal database authentication - no env vars needed
+This uses Django's official environment variables:
+- DJANGO_SUPERUSER_USERNAME
+- DJANGO_SUPERUSER_PASSWORD
+- DJANGO_SUPERUSER_EMAIL
+
+After creation, Django uses normal database authentication - no env vars needed.
 """
 
 import os
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -19,20 +21,37 @@ class Command(BaseCommand):
     help = 'Create or update Django superuser from environment variables (one-time setup)'
 
     def handle(self, *args, **options):
-        """Create superuser from environment variables"""
+        """Create superuser from Django's official environment variables"""
         
-        # Read from environment variables
-        username = os.getenv('ADMIN_USERNAME')
-        password = os.getenv('ADMIN_PASSWORD')
-        email = os.getenv('ADMIN_EMAIL')
+        # Read from environment variables (Django's official variables)
+        username = os.getenv('DJANGO_SUPERUSER_USERNAME')
+        password = os.getenv('DJANGO_SUPERUSER_PASSWORD')
+        email = os.getenv('DJANGO_SUPERUSER_EMAIL')
         
         # Validate environment variables
         if not username:
-            raise CommandError('❌ ADMIN_USERNAME environment variable not set')
+            self.stdout.write(
+                self.style.WARNING(
+                    '⚠️ DJANGO_SUPERUSER_USERNAME environment variable not set'
+                )
+            )
+            return
+        
         if not password:
-            raise CommandError('❌ ADMIN_PASSWORD environment variable not set')
+            self.stdout.write(
+                self.style.WARNING(
+                    '⚠️ DJANGO_SUPERUSER_PASSWORD environment variable not set'
+                )
+            )
+            return
+        
         if not email:
-            raise CommandError('❌ ADMIN_EMAIL environment variable not set')
+            self.stdout.write(
+                self.style.WARNING(
+                    '⚠️ DJANGO_SUPERUSER_EMAIL environment variable not set'
+                )
+            )
+            return
         
         # Check if superuser already exists
         try:
