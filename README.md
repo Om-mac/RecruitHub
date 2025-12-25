@@ -244,10 +244,10 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 
 ### Admin Account Creation
 ```
-Environment Variables:
-- DJANGO_SUPERUSER_USERNAME=tapdiyaom
-- DJANGO_SUPERUSER_EMAIL=tapdiya75@gmail.com
-- DJANGO_SUPERUSER_PASSWORD=***
+Environment Variables (Set in deployment):
+- DJANGO_SUPERUSER_USERNAME=your-admin-username
+- DJANGO_SUPERUSER_EMAIL=your-admin-email@domain.com
+- DJANGO_SUPERUSER_PASSWORD=your-secure-password
 
 On First Deployment:
 ↓
@@ -352,10 +352,12 @@ Password Reset Verification  5 attempts         10 min
 ## Admin Interface
 
 ### Custom Admin Site
-- **URL:** `/admintapdiyaom/` (security through obscurity)
+- **URL:** Custom admin path (configured in settings)
+- **Authentication:** Requires superuser credentials
 - **Styling:** Custom CSS with brand colors
 - **Header:** "🎓 RecruitHub Admin Dashboard"
 - **Features:** Dark mode support, responsive design
+- **Security:** CSRF protection, session-based authentication
 
 ### Admin Sections
 
@@ -495,12 +497,10 @@ DJANGO_SUPERUSER_USERNAME=tapdiyaom
 DJANGO_SUPERUSER_EMAIL=your-email@gmail.com
 DJANGO_SUPERUSER_PASSWORD=secure-password
 
-# Email (Brevo SMTP)
-BREVO_API_KEY=your-brevo-api-key
-BREVO_SMTP_KEY=your-brevo-smtp-key
-EMAIL_BACKEND=path.to.email.backend
-EMAIL_HOST=smtp-relay.brevo.com
-EMAIL_PORT=587
+# Email (Resend)
+RESEND_API_KEY=your-resend-api-key
+EMAIL_BACKEND=core.email_backends.ResendBackend
+DEFAULT_FROM_EMAIL=noreply@yourdomain.com
 
 # AWS S3 (Optional)
 AWS_ACCESS_KEY_ID=your-access-key
@@ -531,10 +531,9 @@ SECURE_CONTENT_SECURITY_POLICY = {...}
 
 **Email Configuration**
 ```python
-EMAIL_BACKEND = 'core.email_backends.BrevoBackend'
-EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 587
+EMAIL_BACKEND = 'core.email_backends.ResendBackend'
 DEFAULT_FROM_EMAIL = 'noreply@yourdomain.com'
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
 ```
 
 **Rate Limiting**
@@ -605,7 +604,7 @@ RecruitHub/
 - **Database:** PostgreSQL (Render Cloud)
 - **Frontend:** Bootstrap 5, HTML5, CSS3
 - **Authentication:** Django built-in + OTP
-- **Email:** Brevo SMTP (free tier)
+- **Email:** Resend (transactional email)
 - **Storage:** AWS S3 (media files)
 - **Hosting:** Render.com
 - **Version Control:** Git & GitHub
@@ -615,15 +614,17 @@ RecruitHub/
 ## Testing Accounts
 
 ### Admin Account
-- **URL:** `/admintapdiyaom/`
-- **Username:** tapdiyaom
-- **Email:** tapdiya75@gmail.com
-- **Password:** Check environment variables
+- **URL:** `/admintapdiyaom/` (configure in environment)
+- **Username:** Set via `DJANGO_SUPERUSER_USERNAME`
+- **Email:** Set via `DJANGO_SUPERUSER_EMAIL`
+- **Password:** Set via `DJANGO_SUPERUSER_PASSWORD`
+- **Auto-created:** On first deployment if not exists
 
 ### Test Student Accounts
-- Can create via admin or manually register
-- Format: username/password defined during registration
-- Complete profiles with test data
+- Can create via `/register/` page
+- Email verification required (OTP)
+- Complete profile with academic details
+- Upload resume and documents
 
 ### Test HR Accounts
 - Register via `/hr/register/`
@@ -763,9 +764,10 @@ Admin at: `http://localhost:8000/admintapdiyaom/`
 - `GET /hr/student/<id>/` - View student details
 
 **Admin Features**
-- `GET /admintapdiyaom/` - Django admin interface
-- `POST /admintapdiyaom/auth/user/` - User management
-- `POST /admintapdiyaom/core/hrprofile/` - HR approval
+- Custom admin dashboard (URL configured in settings)
+- User management and profile editing
+- HR account approval workflow
+- System statistics and monitoring
 
 ---
 
@@ -776,7 +778,7 @@ Admin at: `http://localhost:8000/admintapdiyaom/`
 ### Common Issues
 
 **Q: I can't login as HR**
-- A: Make sure your HR account is approved by admin. Check `/admintapdiyaom/core/hrprofile/` for approval status.
+- A: Make sure your HR account is approved by admin. Check the HR Profiles section in admin panel for approval status.
 
 **Q: OTP expires too quickly**
 - A: OTP is valid for 10 minutes. Check server time synchronization.
