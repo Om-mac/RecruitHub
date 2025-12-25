@@ -23,7 +23,7 @@
             <div class="card text-center">
                 <div class="card-body">
                     <h5 class="text-muted">Total Students</h5>
-                    <h2 class="text-primary">{{ students|length }}</h2>
+                    <h2 class="text-primary">{{ total_students }}</h2>
                 </div>
             </div>
         </div>
@@ -31,13 +31,7 @@
             <div class="card text-center">
                 <div class="card-body">
                     <h5 class="text-muted">Avg CGPA</h5>
-                    <h2 class="text-success">
-                        {% if students %}
-                            <span id="avg-cgpa">Calculating...</span>
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </h2>
+                    <h2 class="text-success">{{ avg_cgpa }}</h2>
                 </div>
             </div>
         </div>
@@ -46,9 +40,7 @@
                 <div class="card-body">
                     <h5 class="text-muted">Zero Backlogs</h5>
                     <h2 class="text-info">
-                        {% with zero_backlog=students|length %}
-                            <span id="zero-backlog">0</span>
-                        {% endwith %}
+                        <span id="zero-backlog">{{ zero_backlog_count }}</span>
                     </h2>
                 </div>
             </div>
@@ -248,32 +240,5 @@
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     })
-
-    // Calculate statistics
-    document.addEventListener('DOMContentLoaded', function() {
-        const students = document.querySelectorAll('tbody tr');
-        let totalCGPA = 0;
-        let cgpaCount = 0;
-        let zeroBacklogCount = 0;
-
-        students.forEach(row => {
-            const cgpaCell = row.cells[3].textContent.trim();
-            const backlogs = parseInt(row.cells[4].textContent.trim());
-
-            const cgpaValue = parseFloat(cgpaCell);
-            if (!isNaN(cgpaValue)) {
-                totalCGPA += cgpaValue;
-                cgpaCount++;
-            }
-
-            if (backlogs === 0) {
-                zeroBacklogCount++;
-            }
-        });
-
-        const avgCGPA = cgpaCount > 0 ? (totalCGPA / cgpaCount).toFixed(2) : 'N/A';
-        document.getElementById('avg-cgpa').textContent = avgCGPA;
-        document.getElementById('zero-backlog').textContent = zeroBacklogCount;
-    });
 </script>
 {% endblock %}

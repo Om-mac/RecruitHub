@@ -588,9 +588,31 @@ def hr_dashboard(request):
     # Get unique branches for filter dropdown
     branches = UserProfile.objects.values_list('branch', flat=True).distinct().exclude(branch='')
     
+    # Calculate statistics
+    total_students = students.count()
+    
+    # Calculate average CGPA (only for students with CGPA data)
+    valid_cgpas = students.exclude(cgpa__isnull=True).exclude(cgpa=0)
+    if valid_cgpas.exists():
+        cgpa_sum = sum(s.cgpa for s in valid_cgpas if s.cgpa and s.cgpa > 0)
+        cgpa_count = sum(1 for s in valid_cgpas if s.cgpa and s.cgpa > 0)
+        avg_cgpa = round(cgpa_sum / cgpa_count, 2) if cgpa_count > 0 else 'N/A'
+    else:
+        avg_cgpa = 'N/A'
+    
+    # Count students with zero backlogs
+    zero_backlog_count = students.filter(current_backlogs=0).count()
+    
+    # Count unique branches
+    branch_count = students.values_list('branch', flat=True).distinct().exclude(branch='').count()
+    
     context = {
         'students': students,
         'branches': branches,
+        'total_students': total_students,
+        'avg_cgpa': avg_cgpa,
+        'zero_backlog_count': zero_backlog_count,
+        'branch_count': branch_count,
         'current_branch': branch_filter,
         'current_cgpa_min': cgpa_min,
         'current_cgpa_max': cgpa_max,
