@@ -16,6 +16,10 @@ A comprehensive Django-based HR recruitment management system designed for colle
 7. [Deployment](#deployment)
 8. [Recent Fixes & Improvements](#recent-fixes--improvements)
 
+**Legal & Privacy:**
+- [Privacy Policy](./PRIVACY_POLICY.md) - Data handling and user rights
+- [Security Policy](./SECURITY.md) - Vulnerability reporting and security practices
+
 ---
 
 ## System Architecture
@@ -904,4 +908,10 @@ This project is proprietary software. Unauthorized copying or distribution is pr
 
 ---
 
-**Made with ❤️ for Campus Recruitment**
+## Legal Documents
+
+- **[Privacy Policy](./PRIVACY_POLICY.md)** - How we collect, use, and protect your data
+- **[Security Policy](./SECURITY.md)** - Security practices and vulnerability reporting
+- **[Terms of Service](./TERMS_OF_SERVICE.md)** - Platform usage terms and conditions
+
+---**Made with ❤️ for Campus Recruitment**
