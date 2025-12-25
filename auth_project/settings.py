@@ -43,6 +43,30 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-
 # Default: admintapdiyaom, but can be changed via ADMIN_URL_PATH environment variable
 ADMIN_URL_PATH = os.environ.get('ADMIN_URL_PATH', 'admintapdiyaom')
 
+# ===== RATE LIMITING CONFIGURATION =====
+# Master switch: Enable/disable all rate limiting
+ENABLE_RATE_LIMITING = os.environ.get('ENABLE_RATE_LIMITING', 'False').lower() == 'true'
+
+# Login rate limiting
+RATE_LIMIT_LOGIN_ENABLED = os.environ.get('RATE_LIMIT_LOGIN_ENABLED', 'False').lower() == 'true'
+RATE_LIMIT_LOGIN_ATTEMPTS = int(os.environ.get('RATE_LIMIT_LOGIN_ATTEMPTS', '5'))
+RATE_LIMIT_LOGIN_WINDOW = int(os.environ.get('RATE_LIMIT_LOGIN_WINDOW', '900'))  # 15 minutes
+
+# Registration rate limiting
+RATE_LIMIT_REGISTRATION_ENABLED = os.environ.get('RATE_LIMIT_REGISTRATION_ENABLED', 'False').lower() == 'true'
+RATE_LIMIT_REGISTRATION_ATTEMPTS = int(os.environ.get('RATE_LIMIT_REGISTRATION_ATTEMPTS', '3'))
+RATE_LIMIT_REGISTRATION_WINDOW = int(os.environ.get('RATE_LIMIT_REGISTRATION_WINDOW', '3600'))  # 1 hour
+
+# OTP rate limiting
+RATE_LIMIT_OTP_ENABLED = os.environ.get('RATE_LIMIT_OTP_ENABLED', 'False').lower() == 'true'
+RATE_LIMIT_OTP_ATTEMPTS = int(os.environ.get('RATE_LIMIT_OTP_ATTEMPTS', '5'))
+RATE_LIMIT_OTP_WINDOW = int(os.environ.get('RATE_LIMIT_OTP_WINDOW', '600'))  # 10 minutes
+
+# Password reset rate limiting
+RATE_LIMIT_PASSWORD_RESET_ENABLED = os.environ.get('RATE_LIMIT_PASSWORD_RESET_ENABLED', 'False').lower() == 'true'
+RATE_LIMIT_PASSWORD_RESET_ATTEMPTS = int(os.environ.get('RATE_LIMIT_PASSWORD_RESET_ATTEMPTS', '3'))
+RATE_LIMIT_PASSWORD_RESET_WINDOW = int(os.environ.get('RATE_LIMIT_PASSWORD_RESET_WINDOW', '3600'))  # 1 hour
+
 # Application definition
 
 INSTALLED_APPS = [
