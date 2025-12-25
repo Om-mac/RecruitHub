@@ -54,4 +54,7 @@ urlpatterns = [
     # Forgot Username URLs
     path('forgot-username/', views.forgot_username_student, name='forgot_username_student'),
     path('hr/forgot-username/', views.forgot_username_hr, name='forgot_username_hr'),
+    
+    # Legal Pages
+    path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
 ]

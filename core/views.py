@@ -1299,3 +1299,7 @@ def forgot_username_hr(request):
     
     return render(request, 'core/forgot_username_hr.html', {'user_type': 'HR'})
 
+
+def privacy_policy(request):
+    """Display privacy policy page"""
+    return render(request, 'core/privacy_policy.html')
