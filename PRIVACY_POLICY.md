@@ -398,4 +398,4 @@ By using RecruitHub, you acknowledge that you have read and understood this Priv
 
 **© 2025 RecruitHub. All rights reserved.**
 
-*This Privacy Policy is provided as-is. Customize it according to your organization's specific practices and jurisdiction.*
+
