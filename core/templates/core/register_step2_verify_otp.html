@@ -85,8 +85,65 @@
         </div>
     </div>
     
-    <script src="{% static 'js/timer.js' %}"></script>
+    <!-- Inline Timer Code -->
     <script>
+        /**
+         * Timer utility for OTP and rate limiting countdowns
+         */
+        class CountdownTimer {
+            constructor(elementId, durationSeconds = 300, onComplete = null) {
+                this.element = document.getElementById(elementId);
+                this.duration = durationSeconds;
+                this.remaining = durationSeconds;
+                this.onComplete = onComplete;
+                this.intervalId = null;
+                this.startTime = null;
+            }
+
+            start() {
+                if (!this.element) return;
+                this.startTime = Date.now();
+                this.remaining = this.duration;
+                
+                // Initial display
+                this.updateDisplay();
+                
+                // Update every second
+                this.intervalId = setInterval(() => {
+                    this.remaining = Math.max(0, this.duration - Math.floor((Date.now() - this.startTime) / 1000));
+                    this.updateDisplay();
+                    
+                    if (this.remaining <= 0) {
+                        this.stop();
+                        if (this.onComplete) this.onComplete();
+                    }
+                }, 100);
+            }
+
+            updateDisplay() {
+                if (!this.element) return;
+                const minutes = Math.floor(this.remaining / 60);
+                const seconds = this.remaining % 60;
+                this.element.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Color transitions
+                if (this.remaining > this.duration * 0.5) {
+                    this.element.style.color = '#28a745'; // Green
+                } else if (this.remaining > this.duration * 0.2) {
+                    this.element.style.color = '#ff6c00'; // Orange
+                } else {
+                    this.element.style.color = '#dc3545'; // Red
+                }
+            }
+
+            stop() {
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                    this.intervalId = null;
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Start OTP validity timer (10 minutes = 600 seconds)
             const otpTimer = new CountdownTimer('otpTimer', 600, function() {

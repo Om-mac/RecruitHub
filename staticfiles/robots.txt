@@ -1,0 +1,17 @@
+# robots.txt - RecruitHub
+# Prevent bots from accessing sensitive areas
+
+User-agent: *
+Disallow: /admin*/
+Disallow: /accounts/
+Disallow: /hr/
+Disallow: /*.json$
+Disallow: /*?*
+Disallow: /api/
+
+# Allow static files
+Allow: /static/
+Allow: /media/
+
+# Sitemap (if you have one)
+# Sitemap: https://vakverse.com/sitemap.xml
