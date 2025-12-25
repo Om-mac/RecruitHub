@@ -39,6 +39,9 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 # ALLOWED_HOSTS can be set via environment variable on Render
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-k435.onrender.com,vakverse.com,*.vakverse.com,testserver').split(',')
 
+# Custom admin URL path (security through obscurity - harder for bots to find)
+# Default: admintapdiyaom, but can be changed via ADMIN_URL_PATH environment variable
+ADMIN_URL_PATH = os.environ.get('ADMIN_URL_PATH', 'admintapdiyaom')
 
 # Application definition
 

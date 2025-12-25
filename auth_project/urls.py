@@ -24,8 +24,11 @@ from core import error_views
 from core.admin import custom_admin
 from core.views import StudentLoginView
 
+# Get admin URL path from settings (configurable via ADMIN_URL_PATH env var)
+ADMIN_URL = getattr(settings, 'ADMIN_URL_PATH', 'admintapdiyaom')
+
 urlpatterns = [
-    path("admintapdiyaom/", custom_admin.urls),
+    path(f"{ADMIN_URL}/", custom_admin.urls),
     # Custom login/logout
     path('accounts/login/', StudentLoginView.as_view(), name='login'),
     path('accounts/logout/', LogoutView.as_view(), name='logout'),
