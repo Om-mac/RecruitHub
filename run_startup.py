@@ -49,13 +49,30 @@ print("=" * 70)
 
 try:
     # Step 1: Run migrations
-    print("\n[1/2] Running migrations...")
+    print("\n[1/3] Running migrations...")
     call_command('migrate', verbosity=2)
     print("✓ Migrations completed")
     
     # Step 2: Create default data
-    print("\n[2/2] Creating default data...")
+    print("\n[2/3] Creating default data...")
     call_command('init_db', verbosity=2)
+    
+    # Step 3: Create superuser from environment variables (one-time setup)
+    print("\n[3/3] Setting up superuser from environment variables...")
+    admin_username = os.getenv('ADMIN_USERNAME')
+    admin_password = os.getenv('ADMIN_PASSWORD')
+    admin_email = os.getenv('ADMIN_EMAIL')
+    
+    if admin_username and admin_password and admin_email:
+        try:
+            call_command('create_superuser_from_env', verbosity=2)
+            print("✓ Superuser setup completed")
+        except Exception as e:
+            print(f"⚠️ Superuser setup error: {str(e)}")
+            # Continue anyway - superuser might already exist
+    else:
+        print("⚠️ Superuser environment variables not set (ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL)")
+        print("   Skipping superuser creation. Set them later with: python manage.py create_superuser_from_env")
     
     print("\n" + "=" * 70)
     print("✅ Database initialization successful!")
