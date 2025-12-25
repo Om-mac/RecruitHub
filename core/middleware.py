@@ -38,18 +38,31 @@ class RateLimitMiddleware(MiddlewareMixin):
             request_method: HTTP method to check ('POST', 'GET', etc.)
         
         Returns:
-            (is_limited, remaining_attempts)
+            (is_limited, remaining_attempts, retry_after)
         """
         if request_method != 'POST':
-            return False, max_attempts  # Only limit POST requests by default
+            return False, max_attempts, 0
         
         attempts = cache.get(key, 0)
         
         if attempts >= max_attempts:
-            return True, 0  # Rate limited
+            # Get remaining time from cache
+            ttl = cache.ttl(key) if hasattr(cache, 'ttl') else window_seconds
+            return True, 0, ttl or window_seconds
         
         cache.set(key, attempts + 1, window_seconds)
-        return False, max_attempts - attempts - 1
+        return False, max_attempts - attempts - 1, 0
+    
+    def rate_limit_response(self, request, message, retry_after=900):
+        """Return rate limit error response as HTML"""
+        context = {
+            'message': message,
+            'retry_after': retry_after,
+            'redirect_url': request.META.get('HTTP_REFERER', '/'),
+        }
+        response = render(request, 'errors/429.html', context, status=429)
+        response['Retry-After'] = str(retry_after)
+        return response
     
     def __call__(self, request):
         # Only apply rate limiting if enabled
@@ -64,7 +77,7 @@ class RateLimitMiddleware(MiddlewareMixin):
             if request.path in ['/accounts/login/', '/hr/login/']:
                 if request.method == 'POST':
                     cache_key = f'rate_limit_login_{client_ip}'
-                    is_limited, remaining = self.check_rate_limit(
+                    is_limited, remaining, retry_after = self.check_rate_limit(
                         cache_key,
                         getattr(settings, 'RATE_LIMIT_LOGIN_ATTEMPTS', 5),
                         getattr(settings, 'RATE_LIMIT_LOGIN_WINDOW', 900)
@@ -72,10 +85,71 @@ class RateLimitMiddleware(MiddlewareMixin):
                     
                     if is_limited:
                         logger.warning(f"Login rate limit exceeded for IP: {client_ip}")
-                        return HttpResponse(
-                            'Too many login attempts. Please try again in 15 minutes.',
-                            status=429
+                        return self.rate_limit_response(
+                            request,
+                            'Too many login attempts. Please try again later.',
+                            retry_after or 900
                         )
+        
+        # ===== REGISTRATION RATE LIMITING =====
+        if getattr(settings, 'RATE_LIMIT_REGISTRATION_ENABLED', False):
+            if request.path in ['/register/', '/hr/register/']:
+                if request.method == 'POST':
+                    cache_key = f'rate_limit_registration_{client_ip}'
+                    is_limited, remaining, retry_after = self.check_rate_limit(
+                        cache_key,
+                        getattr(settings, 'RATE_LIMIT_REGISTRATION_ATTEMPTS', 3),
+                        getattr(settings, 'RATE_LIMIT_REGISTRATION_WINDOW', 3600)
+                    )
+                    
+                    if is_limited:
+                        logger.warning(f"Registration rate limit exceeded for IP: {client_ip}")
+                        return self.rate_limit_response(
+                            request,
+                            'Too many registration attempts. Please try again later.',
+                            retry_after or 3600
+                        )
+        
+        # ===== OTP RATE LIMITING =====
+        if getattr(settings, 'RATE_LIMIT_OTP_ENABLED', False):
+            if '/verify-otp/' in request.path or '/request-otp/' in request.path:
+                if request.method == 'POST':
+                    cache_key = f'rate_limit_otp_{client_ip}'
+                    is_limited, remaining, retry_after = self.check_rate_limit(
+                        cache_key,
+                        getattr(settings, 'RATE_LIMIT_OTP_ATTEMPTS', 5),
+                        getattr(settings, 'RATE_LIMIT_OTP_WINDOW', 600)
+                    )
+                    
+                    if is_limited:
+                        logger.warning(f"OTP rate limit exceeded for IP: {client_ip}")
+                        return self.rate_limit_response(
+                            request,
+                            'Too many OTP attempts. Please try again later.',
+                            retry_after or 600
+                        )
+        
+        # ===== PASSWORD RESET RATE LIMITING =====
+        if getattr(settings, 'RATE_LIMIT_PASSWORD_RESET_ENABLED', False):
+            if '/password-reset/' in request.path or '/forgot-password/' in request.path:
+                if request.method == 'POST':
+                    cache_key = f'rate_limit_password_reset_{client_ip}'
+                    is_limited, remaining, retry_after = self.check_rate_limit(
+                        cache_key,
+                        getattr(settings, 'RATE_LIMIT_PASSWORD_RESET_ATTEMPTS', 3),
+                        getattr(settings, 'RATE_LIMIT_PASSWORD_RESET_WINDOW', 3600)
+                    )
+                    
+                    if is_limited:
+                        logger.warning(f"Password reset rate limit exceeded for IP: {client_ip}")
+                        return self.rate_limit_response(
+                            request,
+                            'Too many password reset attempts. Please try again later.',
+                            retry_after or 3600
+                        )
+        
+        response = self.get_response(request)
+        return response
         
         # ===== REGISTRATION RATE LIMITING =====
         if getattr(settings, 'RATE_LIMIT_REGISTRATION_ENABLED', False):
