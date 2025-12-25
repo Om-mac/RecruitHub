@@ -303,26 +303,26 @@ If we receive a legal request, we may retain your data beyond normal retention p
 ### Privacy Inquiries
 For privacy-related questions or concerns, contact:
 
-**Email:** privacy@yourdomain.com  
-**Address:** [Your Institution/Company Address]  
+**Email:** privacy@vakverse.com  
+**Address:** mukund nagar , swargate ,pune 411037   
 **Response Time:** 30 days for privacy requests
 
 ### Data Protection Officer
 For GDPR/data protection matters:
 
-**Email:** dpo@yourdomain.com  
-**Phone:** [Your Contact Number]
+**Email:** dpo@vakverse.com  
+**Phone:** [9420440361]
 
 ### Support
 For general support and account issues:
 
-**Email:** support@yourdomain.com  
-**Website:** [Your Support Portal]
+**Email:** support@vakverse.com  
+<!-- **Website:** [Your Support Portal] -->
 
 ### Legal Notices
 For legal issues or regulatory matters:
 
-**Email:** legal@yourdomain.com
+**Email:** legal@vakverse.com
 
 ---
 
@@ -383,7 +383,7 @@ If you access this platform from outside your country:
 
 By using RecruitHub, you acknowledge that you have read and understood this Privacy Policy and agree to the collection and use of your information as described.
 
-**Questions?** Contact us at privacy@yourdomain.com
+**Questions?** Contact us at privacy@vakverse.com
 
 ---
 
