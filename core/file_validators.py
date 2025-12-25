@@ -1,6 +1,6 @@
 """
 File upload validators and handlers for S3 security
-Enforces file type and size restrictions
+Enforces file type and size restrictions with magic byte validation
 """
 
 import os
@@ -20,8 +20,16 @@ EXTENSION_TO_MIME = {
     'png': 'image/png',
 }
 
+# Magic bytes for file type validation (prevents extension spoofing)
+MAGIC_BYTES = {
+    'pdf': b'%PDF',
+    'jpg': b'\xff\xd8\xff',
+    'jpeg': b'\xff\xd8\xff',
+    'png': b'\x89PNG\r\n\x1a\n',
+}
+
 # Blocked extensions
-BLOCKED_EXTENSIONS = {'exe', 'zip', 'js', 'html', 'htm', 'dll', 'bat', 'cmd', 'sh'}
+BLOCKED_EXTENSIONS = {'exe', 'zip', 'js', 'html', 'htm', 'dll', 'bat', 'cmd', 'sh', 'php', 'jsp', 'asp', 'cgi'}
 
 # File size limits (in bytes)
 MAX_RESUME_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -42,11 +50,33 @@ def get_mime_type_from_extension(filename):
     return EXTENSION_TO_MIME.get(ext, 'application/octet-stream')
 
 
+def validate_magic_bytes(file, expected_ext):
+    """
+    Validate file content matches expected type using magic bytes
+    Prevents malicious files disguised with fake extensions
+    """
+    expected_magic = MAGIC_BYTES.get(expected_ext)
+    if not expected_magic:
+        return  # No magic bytes defined for this type
+    
+    # Read file header
+    file.seek(0)
+    header = file.read(16)  # Read first 16 bytes
+    file.seek(0)  # Reset file pointer
+    
+    if not header.startswith(expected_magic):
+        raise ValidationError(
+            _('File content does not match extension. The file may be corrupted or malicious.'),
+            code='invalid_magic_bytes',
+        )
+
+
 def validate_resume_file(file):
     """
     Validate resume file:
     - Must be PDF
     - Maximum 5 MB
+    - Magic bytes validation
     """
     if not file:
         return
@@ -71,6 +101,9 @@ def validate_resume_file(file):
                 'file_size': round(file.size / (1024 * 1024), 2),
             },
         )
+    
+    # Validate magic bytes (security: prevent disguised malicious files)
+    validate_magic_bytes(file, ext)
 
 
 def validate_profile_photo(file):
@@ -78,6 +111,7 @@ def validate_profile_photo(file):
     Validate profile photo:
     - Must be JPG or PNG
     - Maximum 1 MB
+    - Magic bytes validation
     """
     if not file:
         return
@@ -102,6 +136,9 @@ def validate_profile_photo(file):
                 'file_size': round(file.size / (1024 * 1024), 2),
             },
         )
+    
+    # Validate magic bytes (security: prevent disguised malicious files)
+    validate_magic_bytes(file, ext)
 
 
 def validate_document_file(file):
@@ -109,6 +146,7 @@ def validate_document_file(file):
     Validate document file:
     - Must be PDF, JPG, or PNG
     - Maximum 5 MB
+    - Magic bytes validation
     """
     if not file:
         return
@@ -133,6 +171,9 @@ def validate_document_file(file):
                 'file_size': round(file.size / (1024 * 1024), 2),
             },
         )
+    
+    # Validate magic bytes (security: prevent disguised malicious files)
+    validate_magic_bytes(file, ext)
 
 
 def is_safe_filename(filename):

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth import authenticate, login, logout, get_user_model, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.views import LoginView
 from django.contrib import messages
@@ -10,7 +10,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
-import random
+import secrets
 import string
 import threading
 import logging
@@ -356,8 +356,8 @@ def hr_register_step1_email(request):
             except EmailOTP.DoesNotExist:
                 pass  # New email, no rate limiting check needed
             
-            # Generate OTP
-            otp = ''.join(random.choices(string.digits, k=6))
+            # Generate cryptographically secure OTP
+            otp = generate_otp()
             
             # Save OTP with rate limiting record
             EmailOTP.objects.filter(email=email).delete()
@@ -698,8 +698,8 @@ def password_reset_request(request):
                 except EmailOTP.DoesNotExist:
                     pass  # New OTP request, no rate limiting check needed
                 
-                # Generate OTP
-                otp = ''.join(random.choices(string.digits, k=6))
+                # Generate cryptographically secure OTP
+                otp = generate_otp()
                 
                 # Save OTP with rate limiting record
                 EmailOTP.objects.filter(email=email).delete()
@@ -869,7 +869,9 @@ def change_password(request):
             if user.check_password(form.cleaned_data['old_password']):
                 user.set_password(form.cleaned_data['new_password1'])
                 user.save()
-                messages.success(request, 'Your password has been changed successfully.')
+                # Security: Update session to prevent logout and invalidate other sessions
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Your password has been changed successfully. All other sessions have been logged out.')
                 return redirect('password_change_done')
             else:
                 form.add_error('old_password', 'Current password is incorrect.')
@@ -886,8 +888,8 @@ def password_change_done(request):
 
 
 def generate_otp():
-    """Generate a random 6-digit OTP"""
-    return ''.join(random.choices(string.digits, k=6))
+    """Generate a cryptographically secure 6-digit OTP"""
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 
 def send_otp_email(email, otp):
@@ -1072,7 +1074,17 @@ def register_step3_create_account(request):
 
 
 def approve_hr_account(request, token):
-    """Approve HR account via token link"""
+    """Approve HR account via token link - Requires admin authentication"""
+    # Security: Require admin authentication
+    if not request.user.is_authenticated:
+        messages.error(request, 'Please log in as admin to approve HR accounts.')
+        return redirect('admin:login')
+    
+    if not (request.user.is_staff and request.user.is_superuser):
+        messages.error(request, 'Only superusers can approve HR accounts.')
+        logger.warning(f"Non-admin user {request.user.username} attempted HR approval")
+        return redirect('admin:index')
+    
     try:
         hr_profile = HRProfile.objects.get(approval_token=token)
         
@@ -1102,7 +1114,17 @@ def approve_hr_account(request, token):
 
 
 def reject_hr_account(request, token):
-    """Reject HR account via token link"""
+    """Reject HR account via token link - Requires admin authentication"""
+    # Security: Require admin authentication
+    if not request.user.is_authenticated:
+        messages.error(request, 'Please log in as admin to reject HR accounts.')
+        return redirect('admin:login')
+    
+    if not (request.user.is_staff and request.user.is_superuser):
+        messages.error(request, 'Only superusers can reject HR accounts.')
+        logger.warning(f"Non-admin user {request.user.username} attempted HR rejection")
+        return redirect('admin:index')
+    
     try:
         hr_profile = HRProfile.objects.get(approval_token=token)
         

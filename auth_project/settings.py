@@ -31,7 +31,14 @@ except ImportError:
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'ciamvzsh2g=nsy4e3iv--k-(uprh_hltzc%gd9_s0%sa@^pt6l3')
+# SECRET_KEY must be set via environment variable in production
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    if os.environ.get('DEBUG', 'False').lower() == 'true':
+        _secret_key = 'dev-only-insecure-key-do-not-use-in-production-change-me'
+    else:
+        raise Exception("CRITICAL: SECRET_KEY environment variable is required in production")
+SECRET_KEY = _secret_key
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
@@ -40,30 +47,37 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-k435.onrender.com,vakverse.com,*.vakverse.com,testserver').split(',')
 
 # Custom admin URL path (security through obscurity - harder for bots to find)
-# Default: admintapdiyaom, but can be changed via ADMIN_URL_PATH environment variable
-ADMIN_URL_PATH = os.environ.get('ADMIN_URL_PATH', 'admintapdiyaom')
+# MUST be set via environment variable in production for security
+ADMIN_URL_PATH = os.environ.get('ADMIN_URL_PATH')
+if not ADMIN_URL_PATH:
+    if DEBUG:
+        ADMIN_URL_PATH = 'admin'  # Default admin path for development only
+    else:
+        # Generate random admin path if not set in production
+        import secrets as _secrets
+        ADMIN_URL_PATH = f'admin-{_secrets.token_hex(8)}'
 
 # ===== RATE LIMITING CONFIGURATION =====
-# Master switch: Enable/disable all rate limiting
-ENABLE_RATE_LIMITING = os.environ.get('ENABLE_RATE_LIMITING', 'False').lower() == 'true'
+# Master switch: Enable/disable all rate limiting (ENABLED by default for security)
+ENABLE_RATE_LIMITING = os.environ.get('ENABLE_RATE_LIMITING', 'True').lower() == 'true'
 
-# Login rate limiting
-RATE_LIMIT_LOGIN_ENABLED = os.environ.get('RATE_LIMIT_LOGIN_ENABLED', 'False').lower() == 'true'
+# Login rate limiting (ENABLED by default)
+RATE_LIMIT_LOGIN_ENABLED = os.environ.get('RATE_LIMIT_LOGIN_ENABLED', 'True').lower() == 'true'
 RATE_LIMIT_LOGIN_ATTEMPTS = int(os.environ.get('RATE_LIMIT_LOGIN_ATTEMPTS', '5'))
 RATE_LIMIT_LOGIN_WINDOW = int(os.environ.get('RATE_LIMIT_LOGIN_WINDOW', '900'))  # 15 minutes
 
-# Registration rate limiting
-RATE_LIMIT_REGISTRATION_ENABLED = os.environ.get('RATE_LIMIT_REGISTRATION_ENABLED', 'False').lower() == 'true'
+# Registration rate limiting (ENABLED by default)
+RATE_LIMIT_REGISTRATION_ENABLED = os.environ.get('RATE_LIMIT_REGISTRATION_ENABLED', 'True').lower() == 'true'
 RATE_LIMIT_REGISTRATION_ATTEMPTS = int(os.environ.get('RATE_LIMIT_REGISTRATION_ATTEMPTS', '3'))
 RATE_LIMIT_REGISTRATION_WINDOW = int(os.environ.get('RATE_LIMIT_REGISTRATION_WINDOW', '3600'))  # 1 hour
 
-# OTP rate limiting
-RATE_LIMIT_OTP_ENABLED = os.environ.get('RATE_LIMIT_OTP_ENABLED', 'False').lower() == 'true'
+# OTP rate limiting (ENABLED by default)
+RATE_LIMIT_OTP_ENABLED = os.environ.get('RATE_LIMIT_OTP_ENABLED', 'True').lower() == 'true'
 RATE_LIMIT_OTP_ATTEMPTS = int(os.environ.get('RATE_LIMIT_OTP_ATTEMPTS', '5'))
 RATE_LIMIT_OTP_WINDOW = int(os.environ.get('RATE_LIMIT_OTP_WINDOW', '600'))  # 10 minutes
 
-# Password reset rate limiting
-RATE_LIMIT_PASSWORD_RESET_ENABLED = os.environ.get('RATE_LIMIT_PASSWORD_RESET_ENABLED', 'False').lower() == 'true'
+# Password reset rate limiting (ENABLED by default)
+RATE_LIMIT_PASSWORD_RESET_ENABLED = os.environ.get('RATE_LIMIT_PASSWORD_RESET_ENABLED', 'True').lower() == 'true'
 RATE_LIMIT_PASSWORD_RESET_ATTEMPTS = int(os.environ.get('RATE_LIMIT_PASSWORD_RESET_ATTEMPTS', '3'))
 RATE_LIMIT_PASSWORD_RESET_WINDOW = int(os.environ.get('RATE_LIMIT_PASSWORD_RESET_WINDOW', '3600'))  # 1 hour
 
@@ -135,15 +149,18 @@ if not DEBUG and 'postgresql' in DATABASES['default'].get('ENGINE', ''):
     }
 
 
-# Password validation
+# Password validation - Enhanced security requirements
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        \"NAME\": \"django.contrib.auth.password_validation.UserAttributeSimilarityValidator\",
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        \"NAME\": \"django.contrib.auth.password_validation.MinimumLengthValidator\",
+        \"OPTIONS\": {
+            \"min_length\": 10,  # Increased from default 8
+        }
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -224,11 +241,12 @@ SECURE_CONTENT_SECURITY_POLICY = {
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = 'Lax'  # Changed from Strict to allow form submissions
 
-# Session security settings
-SESSION_COOKIE_AGE = 3600  # 1 hour session timeout
+# Session security settings - Production hardened
+SESSION_COOKIE_AGE = 1800  # 30 minutes session timeout (reduced for security)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_SAVE_EVERY_REQUEST = True  # Update session expiry on every request
+SESSION_COOKIE_SAMESITE = 'Lax'  # Prevent CSRF but allow navigation
 CSRF_COOKIE_HTTPONLY = False  # Must be False for CSRF token in forms to work
 CSRF_COOKIE_SAMESITE = 'Lax'  # Prevent CSRF but allow form submission
 CSRF_COOKIE_AGE = 31449600  # 1 year
