@@ -133,10 +133,13 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 - View uploaded documents
 - Track upload dates and file sizes
 
-#### Notes System
-- Create personal notes
-- Edit and delete notes
-- Organize thoughts and reminders
+#### Security Features
+- **OTP Email Verification:** 10-minute countdown timer for registration
+- **Password Reset OTP:** Secure password recovery with time-limited verification
+- **Rate Limiting:** IP-based protection against brute force attacks
+- **Session Management:** Automatic logout on inactivity
+- **CSRF Protection:** Cross-site request forgery prevention
+- **Secure Headers:** Content Security Policy, X-Frame-Options, etc.
 
 ### 👔 HR Features
 
@@ -314,11 +317,35 @@ def create_user_profile(sender, instance, created, **kwargs):
 - Attempt limiting on OTP entries
 - Prevents account takeover through email hijacking
 
-### Password Security
-- Django's `set_password()` (PBKDF2-SHA256 hashing)
-- Secure password reset flow with OTP
-- Change password requires old password verification
-- Session-based authentication
+### Rate Limiting & Brute Force Protection
+
+#### IP-Based Rate Limiting
+- **Middleware-based protection** for sensitive endpoints
+- **Configurable limits** via environment variables
+- **Automatic blocking** with HTTP 429 response
+- **Clear messaging** with countdown timer for retry
+
+#### Rate Limit Tiers
+```
+Endpoint                     Limit              Window
+─────────────────────────────────────────────────────
+Student Login                5 attempts         15 min
+HR Login                      5 attempts         15 min
+OTP Verification             5 attempts         10 min
+OTP Request (Resend)         5 per hour        60 min
+Registration (Student)       3 attempts         1 hour
+Registration (HR)            3 attempts         1 hour
+Password Reset Request       3 attempts         1 hour
+Password Reset Verification  5 attempts         10 min
+```
+
+#### Countdown Timer Features
+- **Visual Feedback:** MM:SS format countdown display
+- **Color Coding:** Green → Orange → Red based on remaining time
+- **Persistent Across Refresh:** Calculates from server timestamp
+- **Auto-Expiry Messages:** Notifies when OTP expires
+- **Auto-Redirect:** 429 error page auto-redirects when timer expires
+- **Resend Cooldown:** 60-second button cooldown with countdown display
 
 ---
 
@@ -364,9 +391,53 @@ def create_user_profile(sender, instance, created, **kwargs):
 - View attempt counts
 - Manage OTP records
 
+### 🛡️ Rate Limiting & Security
+
+#### IP-Based Rate Limiting
+- **Login Attempts:** 5 attempts per 15 minutes
+- **OTP Verification:** 5 attempts per 10 minutes
+- **Registration:** 3 attempts per 1 hour
+- **Password Reset:** 3 attempts per 1 hour
+
+#### OTP Countdown Timer UI
+- **Visual Countdown:** MM:SS format countdown display
+- **Color Indicators:** 
+  - Green (>50% time remaining)
+  - Orange (20-50% time remaining)
+  - Red (<20% time remaining)
+- **Auto-Expiry:** Shows "OTP has expired" notification
+- **Persistent Timer:** Continues accurately on page refresh (calculates from server timestamp)
+
+#### Rate Limit Error Page
+- **HTTP 429 Response:** Too Many Attempts error
+- **Countdown Display:** Shows remaining wait time
+- **Auto-Redirect:** Redirects after timer expires
+- **Security Tips:** Guidance on account protection
+
+#### Resend OTP Cooldown
+- **60-Second Cooldown:** Prevents OTP spam
+- **Real-Time Display:** Button shows countdown timer
+- **Button State:** Disabled during cooldown, enabled after expiry
+
 ---
 
 ## Recent Fixes & Improvements
+
+### Session: December 25, 2025
+
+#### ✅ Countdown Timer System
+- **OTP Timer:** 10-minute countdown with color transitions
+- **Persistent Timers:** Calculate remaining time from server timestamps on page refresh
+- **Resend Cooldown:** 60-second button cooldown with live display
+- **Rate Limit Timer:** 15-minute countdown on 429 error page with auto-redirect
+- **Inline JavaScript:** No external file dependency for instant functionality
+
+#### ✅ Timer Implementation
+- **Student Registration:** Timer on OTP verification page
+- **HR Registration:** Timer on HR OTP verification page
+- **Password Reset:** Timer on password reset OTP page
+- **Rate Limiting:** Timer on 429 "Too Many Attempts" error page
+- **Accurate Calculation:** Uses server-provided timestamps, not client-side duration
 
 ### Session: December 24, 2025
 
@@ -446,11 +517,54 @@ AWS_STORAGE_BUCKET_NAME=your-bucket
 6. Starts Gunicorn server
 7. Application ready on deployed URL
 
+### Key Settings
+
+**Security Headers**
+```python
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_SECURITY_POLICY = {...}
+```
+
+**Email Configuration**
+```python
+EMAIL_BACKEND = 'core.email_backends.BrevoBackend'
+EMAIL_HOST = 'smtp-relay.brevo.com'
+EMAIL_PORT = 587
+DEFAULT_FROM_EMAIL = 'noreply@yourdomain.com'
+```
+
+**Rate Limiting**
+```python
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+ENABLE_RATE_LIMITING = True
+RATE_LIMIT_LOGIN_ATTEMPTS = 5
+RATE_LIMIT_LOGIN_WINDOW = 900  # seconds
+# ... other rate limit settings
+```
+
+**Static Files**
+```python
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+```
+
 ### Database Management
-- **PostgreSQL:** Hosted on Render
-- **Migrations:** Automatic on deployment
+- **PostgreSQL:** Hosted on Render Cloud
+- **Migrations:** Automatic on deployment via Procfile
+- **Connection Pooling:** Configured in DATABASE_URL
 - **Backups:** Render automatic daily backups
-- **Monitoring:** Render dashboard with metrics
+- **Monitoring:** Render dashboard with metrics and alerts
 
 ---
 
@@ -538,29 +652,247 @@ RecruitHub/
 
 ---
 
+## Getting Started (Local Development)
+
+### Prerequisites
+- Python 3.13+
+- PostgreSQL (or SQLite for development)
+- Git
+- pip (Python package manager)
+
+### Installation
+
+1. **Clone Repository**
+```bash
+git clone https://github.com/Om-mac/RecruitHub.git
+cd RecruitHub
+```
+
+2. **Create Virtual Environment**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
+
+3. **Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+4. **Environment Setup**
+```bash
+# Create .env file
+cp .env.example .env
+
+# Edit .env with your configuration
+# Database, email, API keys, etc.
+```
+
+5. **Database Setup**
+```bash
+python manage.py migrate
+python manage.py createsuperuser  # Create admin account
+```
+
+6. **Collect Static Files**
+```bash
+python manage.py collectstatic --noinput
+```
+
+7. **Run Development Server**
+```bash
+python manage.py runserver
+```
+
+Access at: `http://localhost:8000`
+Admin at: `http://localhost:8000/admintapdiyaom/`
+
+### Default Accounts
+
+**Admin Account:** Created via `createsuperuser` command
+
+**Test Student Account:** Create via registration page
+
+**Test HR Account:** Register and approve via admin panel
+
+---
+
 ## Future Enhancements
 
-- [ ] Email notifications to HR on student registration
-- [ ] Interview scheduling system
-- [ ] Job posting and application management
-- [ ] Offer letter generation
-- [ ] Analytics dashboard with charts
-- [ ] Two-factor authentication (2FA)
-- [ ] Role-based permissions system
-- [ ] API for mobile app
-- [ ] Bulk student upload (CSV)
-- [ ] Advanced search and filters
+- [ ] Interview scheduling system with calendar integration
+- [ ] Job posting and online application management
+- [ ] Offer letter generation and e-signature
+- [ ] Email notifications and reminders to HR
+- [ ] Analytics dashboard with recruitment metrics
+- [ ] Two-factor authentication (2FA) with TOTP
+- [ ] Role-based permissions (custom roles)
+- [ ] REST API for mobile app integration
+- [ ] Bulk student upload (CSV/Excel import)
+- [ ] Advanced search with full-text search
+- [ ] Student feedback and evaluation system
+- [ ] Company profile pages for students
+- [ ] Email campaign system for HR
+- [ ] Automated email workflows
+- [ ] Document storage and versioning
+- [ ] Activity logging and audit trail
+
+---
+
+## API Documentation
+
+### Available Endpoints
+
+**Authentication**
+- `POST /accounts/login/` - Student login
+- `POST /accounts/logout/` - Logout
+- `POST /accounts/register/` - Student registration
+- `POST /password-reset/` - Password reset request
+- `POST /password-reset/verify/` - Verify password reset OTP
+
+**Student Features**
+- `GET /dashboard/` - Student dashboard
+- `GET /profile/` - View own profile
+- `PUT /profile/` - Update profile
+- `POST /upload-document/` - Upload resume
+
+**HR Features**
+- `GET /hr/login/` - HR login page
+- `GET /hr/register/` - HR registration
+- `GET /hr/dashboard/` - HR dashboard (approved only)
+- `GET /hr/students/` - List students (with filters)
+- `GET /hr/student/<id>/` - View student details
+
+**Admin Features**
+- `GET /admintapdiyaom/` - Django admin interface
+- `POST /admintapdiyaom/auth/user/` - User management
+- `POST /admintapdiyaom/core/hrprofile/` - HR approval
+
+---
+
+---
+
+## Troubleshooting & FAQ
+
+### Common Issues
+
+**Q: I can't login as HR**
+- A: Make sure your HR account is approved by admin. Check `/admintapdiyaom/core/hrprofile/` for approval status.
+
+**Q: OTP expires too quickly**
+- A: OTP is valid for 10 minutes. Check server time synchronization.
+
+**Q: Rate limited from too many login attempts**
+- A: Wait 15 minutes for the rate limit to reset. See `/static/429.html` for timer.
+
+**Q: Email not receiving OTP**
+- A: Check spam/junk folder. Verify email configuration in environment variables.
+
+**Q: Profile photo not uploading**
+- A: Ensure AWS S3 credentials are configured. Check bucket permissions.
+
+**Q: Admin account not created on deployment**
+- A: Verify `DJANGO_SUPERUSER_*` environment variables are set correctly.
+
+**Q: Static files returning 404**
+- A: Run `python manage.py collectstatic --noinput` and verify `STATIC_ROOT` path.
+
+### Debug Mode
+
+**Enable Debug Logging**
+```python
+# settings.py
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
+}
+```
+
+### Database Reset (Development Only)
+
+```bash
+# WARNING: This deletes all data!
+python manage.py flush
+python manage.py migrate
+python manage.py createsuperuser
+```
 
 ---
 
 ## Support & Contact
 
-**Developer:** Om Tapdiya
-**Email:** tapdiya75@gmail.com
-**GitHub:** [RecruitHub Repository](https://github.com/Om-mac/RecruitHub)
+**Project Repository:** [RecruitHub on GitHub](https://github.com/Om-mac/RecruitHub)
 
-**Last Updated:** December 24, 2025
-**Version:** 2.0.0 (Production Ready)
+**Developer:** Om Tapdiya
+
+**Email:** tapdiya75@gmail.com (for queries, not credentials)
+
+**Issues & Bugs:** Create an issue on GitHub repository
+
+**Last Updated:** December 25, 2025  
+**Version:** 2.1.0 (Production Ready)
+
+---
+
+## Performance & Optimization
+
+### Database Optimization
+- **Indexing:** Indexed on frequently queried fields (email, username)
+- **Query Optimization:** `select_related()` and `prefetch_related()` used
+- **Pagination:** Admin list views paginated (100 per page)
+- **Caching:** Session caching for rate limiting
+
+### Frontend Optimization
+- **Static Files:** WhiteNoise compression and caching
+- **CSS/JS:** Bootstrap CDN for faster loading
+- **Images:** Lazy loading for profile photos
+- **Responsive Design:** Mobile-friendly UI
+
+### Server Performance
+- **Gunicorn Workers:** 1 worker (configurable)
+- **Connection Pooling:** Database connection pooling
+- **Middleware:** Minimal middleware stack
+- **Logging:** Efficient logging without file I/O
+
+---
+
+## Development Best Practices
+
+### Code Style
+- Python: PEP 8 compliance
+- Django: Follow Django conventions
+- HTML/CSS: Bootstrap 5 standards
+- JavaScript: ES6+ standards
+
+### Testing
+```bash
+# Run tests
+python manage.py test
+
+# Test with coverage
+coverage run --source='.' manage.py test
+coverage report
+```
+
+### Deployment Checklist
+- [ ] All migrations applied
+- [ ] Static files collected
+- [ ] Environment variables configured
+- [ ] Database backed up
+- [ ] Email service configured
+- [ ] AWS S3 credentials set
+- [ ] SSL certificate active
+- [ ] Debug mode disabled
+- [ ] Allowed hosts configured
+- [ ] Secret key secure
 
 ---
 
