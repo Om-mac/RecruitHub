@@ -104,15 +104,30 @@ class RateLimitMiddleware(MiddlewareMixin):
     def rate_limit_response(self, request, message, retry_after=900):
         """Return rate limit error response as HTML"""
         import time
+        from urllib.parse import urlparse
         
         # Calculate expiration timestamp (current time + retry_after seconds)
         expires_at = time.time() + retry_after
+        
+        # Security: Validate redirect_url to prevent open redirect
+        referer = request.META.get('HTTP_REFERER', '/')
+        try:
+            parsed = urlparse(referer)
+            # Only allow same-host redirects (no external URLs)
+            host = request.get_host()
+            if parsed.netloc and parsed.netloc != host:
+                redirect_url = '/'
+            else:
+                # Only keep path, strip query params for safety
+                redirect_url = parsed.path or '/'
+        except Exception:
+            redirect_url = '/'
         
         context = {
             'message': message,
             'retry_after': retry_after,
             'expires_at': expires_at,  # Unix timestamp when rate limit expires
-            'redirect_url': request.META.get('HTTP_REFERER', '/'),
+            'redirect_url': redirect_url,
         }
         response = render(request, 'errors/429.html', context, status=429)
         response['Retry-After'] = str(retry_after)

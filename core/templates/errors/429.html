@@ -126,8 +126,8 @@
             
             // Start rate limit timer with calculated remaining time
             const timer = new CountdownTimer('retryTimer', remainingSeconds, function() {
-                // Redirect back when timer expires
-                window.location.href = '{{ redirect_url|default:"/" }}';
+                // Redirect back when timer expires (URL validated server-side)
+                window.location.href = '{{ redirect_url|escapejs }}';
             });
             timer.start();
         });
