@@ -1,8 +1,11 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import Document, Note, UserProfile, HRProfile
 from bleach import clean
 from .file_validators import validate_resume_file, validate_profile_photo, validate_document_file
+import re
 
 # XSS Protection helper function
 def sanitize_input(value):
@@ -11,6 +14,46 @@ def sanitize_input(value):
         return value
     # Allow only plain text, remove all HTML/JavaScript
     return clean(str(value).strip(), tags=[], strip=True)
+
+
+def validate_username_format(username):
+    """Validate username format - alphanumeric and underscore only"""
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]{2,29}$', username):
+        raise forms.ValidationError(
+            'Username must start with a letter, contain only letters, numbers, and underscores, '
+            'and be 3-30 characters long.'
+        )
+    return username
+
+
+def validate_phone_format(phone):
+    """Validate phone number format"""
+    if not phone:
+        return phone
+    # Remove spaces, dashes, parentheses
+    cleaned = re.sub(r'[\s\-\(\)]', '', phone)
+    # Must be 10-15 digits, optionally starting with +
+    if not re.match(r'^\+?[0-9]{10,15}$', cleaned):
+        raise forms.ValidationError('Enter a valid phone number (10-15 digits).')
+    return cleaned
+
+
+def validate_password_strength(password):
+    """
+    Validate password meets security requirements:
+    - At least 10 characters (matches settings.py)
+    - Uses Django's built-in validators
+    """
+    if not password:
+        raise forms.ValidationError('Password is required.')
+    
+    # Use Django's password validators (defined in settings.py)
+    try:
+        validate_password(password)
+    except DjangoValidationError as e:
+        raise forms.ValidationError(list(e.messages))
+    
+    return password
 
 class UserRegistrationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput)
@@ -31,15 +74,18 @@ class UserRegistrationForm(forms.ModelForm):
         username = sanitize_input(self.cleaned_data.get('username'))
         if not username:
             raise forms.ValidationError('Username is required.')
+        # Validate username format
+        validate_username_format(username)
         if User.objects.filter(username=username).exists():
             raise forms.ValidationError('This username already exists. Please choose another.')
-        # Prevent SQL injection by using ORM (Django handles parameterized queries)
         return username
     
     def clean_email(self):
         email = sanitize_input(self.cleaned_data.get('email'))
         if not email:
             raise forms.ValidationError('Email is required.')
+        # Normalize email to lowercase
+        email = email.lower()
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError('This email is already registered.')
         return email
@@ -58,12 +104,8 @@ class UserRegistrationForm(forms.ModelForm):
     
     def clean_password(self):
         password = self.cleaned_data.get('password')
-        if not password:
-            raise forms.ValidationError('Password is required.')
-        if len(password) < 8:
-            raise forms.ValidationError('Password must be at least 8 characters long.')
-        # Don't sanitize passwords - they may contain special characters
-        return password
+        # Use Django's password validators (includes length, complexity, common password checks)
+        return validate_password_strength(password)
     
     def clean(self):
         cleaned_data = super().clean()
@@ -93,6 +135,8 @@ class HRRegistrationForm(forms.ModelForm):
         username = sanitize_input(self.cleaned_data.get('username'))
         if not username:
             raise forms.ValidationError('Username is required.')
+        # Validate username format
+        validate_username_format(username)
         if User.objects.filter(username=username).exists():
             raise forms.ValidationError('This username already exists. Please choose another.')
         return username
@@ -101,6 +145,8 @@ class HRRegistrationForm(forms.ModelForm):
         email = sanitize_input(self.cleaned_data.get('email'))
         if not email:
             raise forms.ValidationError('Email is required.')
+        # Normalize email to lowercase
+        email = email.lower()
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError('This email is already registered.')
         return email
@@ -119,11 +165,8 @@ class HRRegistrationForm(forms.ModelForm):
     
     def clean_password(self):
         password = self.cleaned_data.get('password')
-        if not password:
-            raise forms.ValidationError('Password is required.')
-        if len(password) < 8:
-            raise forms.ValidationError('Password must be at least 8 characters long.')
-        return password
+        # Use Django's password validators
+        return validate_password_strength(password)
     
     def clean(self):
         cleaned_data = super().clean()
@@ -136,11 +179,23 @@ class HRProfileForm(forms.ModelForm):
         model = HRProfile
         fields = ['company_name', 'designation', 'department', 'admin_notes']
         widgets = {
-            'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company Name'}),
-            'designation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Designation'}),
-            'department': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Department'}),
-            'admin_notes': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Any notes or message for admin (optional)', 'rows': 4}),
+            'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company Name', 'maxlength': '255'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Designation', 'maxlength': '100'}),
+            'department': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Department', 'maxlength': '100'}),
+            'admin_notes': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Any notes or message for admin (optional)', 'rows': 4, 'maxlength': '1000'}),
         }
+    
+    def clean_company_name(self):
+        return sanitize_input(self.cleaned_data.get('company_name'))
+    
+    def clean_designation(self):
+        return sanitize_input(self.cleaned_data.get('designation'))
+    
+    def clean_department(self):
+        return sanitize_input(self.cleaned_data.get('department'))
+    
+    def clean_admin_notes(self):
+        return sanitize_input(self.cleaned_data.get('admin_notes'))
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
@@ -197,6 +252,69 @@ class UserProfileForm(forms.ModelForm):
         if file:
             validate_resume_file(file)
         return file
+    
+    def clean_phone(self):
+        """Validate phone number format"""
+        phone = self.cleaned_data.get('phone')
+        return validate_phone_format(phone) if phone else phone
+    
+    # XSS sanitization for all text fields
+    def clean_middle_name(self):
+        return sanitize_input(self.cleaned_data.get('middle_name'))
+    
+    def clean_address(self):
+        return sanitize_input(self.cleaned_data.get('address'))
+    
+    def clean_city(self):
+        return sanitize_input(self.cleaned_data.get('city'))
+    
+    def clean_state(self):
+        return sanitize_input(self.cleaned_data.get('state'))
+    
+    def clean_pincode(self):
+        pincode = sanitize_input(self.cleaned_data.get('pincode'))
+        if pincode and not re.match(r'^[0-9]{5,10}$', pincode):
+            raise forms.ValidationError('Enter a valid pincode (5-10 digits).')
+        return pincode
+    
+    def clean_college_name(self):
+        return sanitize_input(self.cleaned_data.get('college_name'))
+    
+    def clean_branch(self):
+        return sanitize_input(self.cleaned_data.get('branch'))
+    
+    def clean_degree(self):
+        return sanitize_input(self.cleaned_data.get('degree'))
+    
+    def clean_specialization(self):
+        return sanitize_input(self.cleaned_data.get('specialization'))
+    
+    def clean_certifications_links(self):
+        return sanitize_input(self.cleaned_data.get('certifications_links'))
+    
+    def clean_skills(self):
+        return sanitize_input(self.cleaned_data.get('skills'))
+    
+    def clean_github_username(self):
+        username = sanitize_input(self.cleaned_data.get('github_username'))
+        if username and not re.match(r'^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$', username):
+            raise forms.ValidationError('Enter a valid GitHub username.')
+        return username
+    
+    def clean_linkedin_username(self):
+        return sanitize_input(self.cleaned_data.get('linkedin_username'))
+    
+    def clean_hackerrank_username(self):
+        return sanitize_input(self.cleaned_data.get('hackerrank_username'))
+    
+    def clean_other_platforms(self):
+        return sanitize_input(self.cleaned_data.get('other_platforms'))
+    
+    def clean_experience(self):
+        return sanitize_input(self.cleaned_data.get('experience'))
+    
+    def clean_bio(self):
+        return sanitize_input(self.cleaned_data.get('bio'))
 
 class PasswordResetForm(forms.Form):
     email = forms.EmailField(
@@ -227,10 +345,12 @@ class SetPasswordForm(forms.Form):
     
     def clean(self):
         cleaned_data = super().clean()
-        if cleaned_data.get('new_password1') != cleaned_data.get('new_password2'):
+        password1 = cleaned_data.get('new_password1')
+        password2 = cleaned_data.get('new_password2')
+        if password1 != password2:
             raise forms.ValidationError('Passwords do not match')
-        if len(cleaned_data.get('new_password1', '')) < 8:
-            raise forms.ValidationError('Password must be at least 8 characters long')
+        if password1:
+            validate_password_strength(password1)
         return cleaned_data
 
 class ChangePasswordForm(forms.Form):
@@ -263,8 +383,8 @@ class ChangePasswordForm(forms.Form):
         cleaned_data = super().clean()
         if cleaned_data.get('new_password1') != cleaned_data.get('new_password2'):
             raise forms.ValidationError('New passwords do not match')
-        if len(cleaned_data.get('new_password1', '')) < 8:
-            raise forms.ValidationError('Password must be at least 8 characters long')
+        if cleaned_data.get('new_password1'):
+            validate_password_strength(cleaned_data.get('new_password1'))
         return cleaned_data
 
 class DocumentForm(forms.ModelForm):
@@ -286,6 +406,10 @@ class DocumentForm(forms.ModelForm):
         if file:
             validate_document_file(file)
         return file
+    
+    def clean_title(self):
+        """Sanitize document title to prevent XSS"""
+        return sanitize_input(self.cleaned_data.get('title'))
 
 class OTPForm(forms.Form):
     """Form for OTP verification"""
@@ -323,6 +447,14 @@ class NoteForm(forms.ModelForm):
         model = Note
         fields = ['title', 'content']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Note Title'}),
-            'content': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Note Content', 'rows': 5}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Note Title', 'maxlength': '200'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Note Content', 'rows': 5, 'maxlength': '10000'}),
         }
+    
+    def clean_title(self):
+        """Sanitize note title to prevent XSS"""
+        return sanitize_input(self.cleaned_data.get('title'))
+    
+    def clean_content(self):
+        """Sanitize note content to prevent XSS"""
+        return sanitize_input(self.cleaned_data.get('content'))
