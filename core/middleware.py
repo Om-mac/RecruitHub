@@ -17,16 +17,64 @@ class RateLimitMiddleware(MiddlewareMixin):
     - RATE_LIMIT_REGISTRATION_ENABLED: Enable registration rate limiting
     - RATE_LIMIT_OTP_ENABLED: Enable OTP rate limiting
     - RATE_LIMIT_PASSWORD_RESET_ENABLED: Enable password reset rate limiting
+    - TRUSTED_PROXY_IPS: Comma-separated list of trusted proxy IPs (e.g., Cloudflare, Render)
     
     Plus: *_ATTEMPTS and *_WINDOW for each endpoint
     """
     
+    # Cloudflare IP ranges (IPv4) - these are the only IPs that should send X-Forwarded-For
+    # Source: https://www.cloudflare.com/ips/
+    CLOUDFLARE_IPS = [
+        '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22',
+        '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20',
+        '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13',
+        '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22'
+    ]
+    
+    def is_trusted_proxy(self, ip):
+        """Check if IP is from a trusted proxy (Cloudflare/Render)"""
+        import ipaddress
+        try:
+            client_ip = ipaddress.ip_address(ip)
+            # Check against Cloudflare ranges
+            for cidr in self.CLOUDFLARE_IPS:
+                if client_ip in ipaddress.ip_network(cidr):
+                    return True
+            # Check custom trusted proxies from settings
+            trusted_proxies = getattr(settings, 'TRUSTED_PROXY_IPS', '').split(',')
+            for proxy_ip in trusted_proxies:
+                proxy_ip = proxy_ip.strip()
+                if proxy_ip and ip == proxy_ip:
+                    return True
+        except ValueError:
+            pass
+        return False
+    
     def get_client_ip(self, request):
-        """Extract client IP from request"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0].strip()
-        return request.META.get('REMOTE_ADDR')
+        """Extract client IP from request with spoofing protection
+        
+        Security: Only trusts X-Forwarded-For header if request comes from
+        a known trusted proxy (Cloudflare, Render). This prevents attackers
+        from bypassing rate limiting by spoofing this header.
+        """
+        remote_addr = request.META.get('REMOTE_ADDR', '')
+        
+        # Only trust X-Forwarded-For if request is from a trusted proxy
+        if self.is_trusted_proxy(remote_addr):
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                # Get the rightmost untrusted IP (client IP)
+                # Format: client, proxy1, proxy2, ... (leftmost is original client)
+                ips = [ip.strip() for ip in x_forwarded_for.split(',')]
+                # Return first non-trusted IP from the left (original client)
+                for ip in ips:
+                    if not self.is_trusted_proxy(ip):
+                        return ip
+                # If all IPs are trusted (shouldn't happen), use first one
+                return ips[0] if ips else remote_addr
+        
+        # Not from trusted proxy - use REMOTE_ADDR directly
+        return remote_addr
     
     def check_rate_limit(self, key, max_attempts, window_seconds, request_method='POST'):
         """Check if request exceeds rate limit
@@ -156,63 +204,7 @@ class RateLimitMiddleware(MiddlewareMixin):
         
         response = self.get_response(request)
         return response
-        
-        # ===== REGISTRATION RATE LIMITING =====
-        if getattr(settings, 'RATE_LIMIT_REGISTRATION_ENABLED', False):
-            if request.path in ['/register/', '/hr/register/']:
-                if request.method == 'POST':
-                    cache_key = f'rate_limit_registration_{client_ip}'
-                    is_limited, remaining = self.check_rate_limit(
-                        cache_key,
-                        getattr(settings, 'RATE_LIMIT_REGISTRATION_ATTEMPTS', 3),
-                        getattr(settings, 'RATE_LIMIT_REGISTRATION_WINDOW', 3600)
-                    )
-                    
-                    if is_limited:
-                        logger.warning(f"Registration rate limit exceeded for IP: {client_ip}")
-                        return HttpResponse(
-                            'Too many registration attempts. Please try again in 1 hour.',
-                            status=429
-                        )
-        
-        # ===== OTP RATE LIMITING =====
-        if getattr(settings, 'RATE_LIMIT_OTP_ENABLED', False):
-            if '/verify-otp/' in request.path or '/request-otp/' in request.path:
-                if request.method == 'POST':
-                    cache_key = f'rate_limit_otp_{client_ip}'
-                    is_limited, remaining = self.check_rate_limit(
-                        cache_key,
-                        getattr(settings, 'RATE_LIMIT_OTP_ATTEMPTS', 5),
-                        getattr(settings, 'RATE_LIMIT_OTP_WINDOW', 600)
-                    )
-                    
-                    if is_limited:
-                        logger.warning(f"OTP rate limit exceeded for IP: {client_ip}")
-                        return HttpResponse(
-                            'Too many OTP attempts. Please try again in 10 minutes.',
-                            status=429
-                        )
-        
-        # ===== PASSWORD RESET RATE LIMITING =====
-        if getattr(settings, 'RATE_LIMIT_PASSWORD_RESET_ENABLED', False):
-            if '/password-reset/' in request.path or '/forgot-password/' in request.path:
-                if request.method == 'POST':
-                    cache_key = f'rate_limit_password_reset_{client_ip}'
-                    is_limited, remaining = self.check_rate_limit(
-                        cache_key,
-                        getattr(settings, 'RATE_LIMIT_PASSWORD_RESET_ATTEMPTS', 3),
-                        getattr(settings, 'RATE_LIMIT_PASSWORD_RESET_WINDOW', 3600)
-                    )
-                    
-                    if is_limited:
-                        logger.warning(f"Password reset rate limit exceeded for IP: {client_ip}")
-                        return HttpResponse(
-                            'Too many password reset attempts. Please try again in 1 hour.',
-                            status=429
-                        )
-        
-        response = self.get_response(request)
-        return response
+
 
 class ErrorHandlingMiddleware:
     """Middleware to catch and log all errors"""
@@ -261,25 +253,43 @@ class SecurityHeadersMiddleware:
         return response
 
 class RequestLoggingMiddleware:
-    """Log all requests"""
+    """Log all requests with sensitive data filtering"""
+    
+    # Patterns to redact from logged paths
+    SENSITIVE_PATTERNS = ['token', 'otp', 'password', 'key', 'secret', 'auth']
     
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        logger.info(f"{request.method} {request.path} from {self.get_client_ip(request)}")
+        # Sanitize path to remove sensitive query params
+        safe_path = self.sanitize_path(request.path, request.META.get('QUERY_STRING', ''))
+        logger.info(f"{request.method} {safe_path} from {self.get_client_ip(request)}")
         response = self.get_response(request)
-        logger.info(f"Response: {response.status_code} for {request.path}")
+        logger.info(f"Response: {response.status_code} for {safe_path}")
         return response
     
-    @staticmethod
-    def get_client_ip(request):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
+    def sanitize_path(self, path, query_string):
+        """Remove sensitive data from path for logging"""
+        if not query_string:
+            return path
+        
+        # Parse and redact sensitive query params
+        from urllib.parse import parse_qs, urlencode
+        try:
+            params = parse_qs(query_string, keep_blank_values=True)
+            for key in params:
+                if any(pattern in key.lower() for pattern in self.SENSITIVE_PATTERNS):
+                    params[key] = ['[REDACTED]']
+            safe_query = urlencode(params, doseq=True)
+            return f"{path}?{safe_query}" if safe_query else path
+        except Exception:
+            return path
+    
+    def get_client_ip(self, request):
+        """Extract client IP - use REMOTE_ADDR only (proxy-aware via RateLimitMiddleware)"""
+        # For logging, we use REMOTE_ADDR to avoid log injection via X-Forwarded-For
+        return request.META.get('REMOTE_ADDR', 'unknown')
 
 class XSSProtectionMiddleware:
     """Middleware to help prevent XSS attacks"""
@@ -289,8 +299,21 @@ class XSSProtectionMiddleware:
     
     def __call__(self, request):
         response = self.get_response(request)
-        # Add additional XSS protection headers with S3 and CDN support
+        # Add comprehensive CSP header with S3 and CDN support
         if isinstance(response, HttpResponse):
-            response['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com fonts.gstatic.com;"
+            # Build CSP with all security directives
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com",
+                "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com",
+                "img-src 'self' data: https: blob:",
+                "font-src 'self' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com fonts.gstatic.com",
+                "frame-ancestors 'none'",  # Clickjacking protection (stronger than X-Frame-Options)
+                "form-action 'self'",  # Prevent form submission to external sites
+                "base-uri 'self'",  # Prevent base tag injection
+                "object-src 'none'",  # Block Flash/plugins
+                "upgrade-insecure-requests",  # Force HTTPS for all resources
+            ]
+            response['Content-Security-Policy'] = "; ".join(csp_directives)
         return response
 
