@@ -1,9 +1,16 @@
 """
 S3 presigned URL generation for secure file downloads
 Generates temporary signed URLs that expire after 1-5 minutes
+
+Security Features:
+- Presigned URLs with short expiration (1-5 minutes)
+- Path traversal prevention
+- User ownership validation
+- No credential/bucket logging
 """
 
 import logging
+import re
 import boto3
 from django.conf import settings
 from botocore.exceptions import ClientError
@@ -11,6 +18,43 @@ from botocore.exceptions import ClientError
 # Suppress S3 URL logging
 logger = logging.getLogger('s3_security')
 logger.setLevel(logging.WARNING)
+
+
+def sanitize_s3_path(file_path):
+    """
+    Sanitize S3 file path to prevent path traversal attacks
+    
+    Security:
+    - Removes path traversal sequences (../, ..\ )
+    - Removes null bytes
+    - Normalizes path separators
+    - Ensures path stays within allowed directories
+    """
+    if not file_path:
+        return None
+    
+    # Remove null bytes
+    file_path = file_path.replace('\x00', '')
+    
+    # Normalize path separators
+    file_path = file_path.replace('\\', '/')
+    
+    # Remove path traversal sequences
+    while '../' in file_path or '..\\' in file_path:
+        file_path = file_path.replace('../', '').replace('..\\', '')
+    
+    # Remove leading slashes
+    file_path = file_path.lstrip('/')
+    
+    # Only allow files in expected directories
+    allowed_prefixes = ('media/', 'profile_photos/', 'resumes/', 'documents/')
+    if not file_path.startswith(allowed_prefixes):
+        # Check if it's a direct file in allowed folder
+        parts = file_path.split('/')
+        if len(parts) > 0 and parts[0] not in ['media', 'profile_photos', 'resumes', 'documents']:
+            return None
+    
+    return file_path
 
 
 def get_s3_client():
@@ -46,10 +90,17 @@ def generate_presigned_url(file_path, expiration=300):
         - URL expires automatically (default 5 minutes)
         - Requires AWS signature authentication
         - Bucket and credentials never logged
+        - Path traversal prevention
     """
     if not settings.USE_S3:
         # Local development: return local file URL
         return f'/media/{file_path}'
+    
+    # Security: Sanitize file path to prevent traversal attacks
+    file_path = sanitize_s3_path(file_path)
+    if not file_path:
+        logger.warning('Invalid file path rejected')
+        return None
     
     # Validate expiration is within 1-5 minutes
     if expiration < 60 or expiration > 300:
@@ -83,7 +134,8 @@ def generate_presigned_url(file_path, expiration=300):
             # If file doesn't exist in S3, try local storage fallback
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             if error_code == 'NoSuchKey':
-                logger.warning(f'File not found in S3, falling back to local storage: {file_path}')
+                # Security: Don't log file path (may contain user IDs)
+                logger.warning('File not found in S3, falling back to local storage')
                 # Return local file URL as fallback
                 return f'/media/{file_path}'
             else:

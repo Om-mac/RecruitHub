@@ -90,7 +90,7 @@ def download_profile_photo(request):
     
     Security:
     - Requires authentication
-    - If user_id provided: HR/admin permission check
+    - If user_id provided: Approved HR/admin permission check
     - If no user_id: Returns current user's photo
     - Returns presigned URL (not direct S3 URL)
     - URL expires in 5 minutes
@@ -101,8 +101,12 @@ def download_profile_photo(request):
         
         if user_id:
             # HR/Admin viewing a student's photo
-            # Check if current user is HR/Admin
-            if not (request.user.is_staff or request.user.is_superuser):
+            # Security: Check if current user is APPROVED HR or superuser
+            is_approved_hr = False
+            if hasattr(request.user, 'hr_profile'):
+                is_approved_hr = request.user.hr_profile.is_approved
+            
+            if not (request.user.is_superuser or is_approved_hr):
                 return JsonResponse({
                     'error': 'Access denied',
                     'status': 403
