@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 build/
 develop-eggs/
@@ -62,3 +63,15 @@ db.sqlite3
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+!logs/.gitkeep
+
+# Security - never commit these
+*.pem
+*.key
+secrets.json
+credentials.json
