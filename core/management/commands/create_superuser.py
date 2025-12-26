@@ -8,11 +8,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
-            email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@vakverse.com')
+            username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
+            email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
             password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
             
-            self.stdout.write(f'DEBUG: username={username}, email={email}, password_set={bool(password)}')
+            # Security: Don't log credential details
+            if not username or not email:
+                self.stdout.write(
+                    self.style.WARNING('DJANGO_SUPERUSER_USERNAME or DJANGO_SUPERUSER_EMAIL not set. Skipping.')
+                )
+                return
             
             if not password:
                 self.stdout.write(

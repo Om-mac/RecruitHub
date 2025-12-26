@@ -15,9 +15,8 @@ class Command(BaseCommand):
             call_command('migrate', verbosity=2, interactive=False)
             self.stdout.write(self.style.SUCCESS('✓ Migrations completed successfully'))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'✗ Migration failed: {str(e)}'))
-            import traceback
-            traceback.print_exc()
+            # Security: Don't print full traceback (leaks internal paths)
+            self.stdout.write(self.style.ERROR(f'✗ Migration failed: {type(e).__name__}'))
             return
         
         # Step 2: Check if tables exist (for both PostgreSQL and SQLite)
