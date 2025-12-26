@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
 from .models import UserProfile, Document, Note, HRProfile, EmailOTP
 
 # Custom Admin Site with Enhanced Styling
@@ -21,7 +21,8 @@ custom_admin = CustomAdminSite(name='recruitHub_admin')
 @admin.register(UserProfile, site=custom_admin)
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ['user_badge', 'college_badge', 'branch', 'degree', 'year_display', 'cgpa_badge', 'github_username', 'delete_user_link']
-    search_fields = ['user__username', 'user__first_name', 'user__last_name', 'college_name', 'branch', 'phone', 'specialization', 'github_username', 'linkedin_username']
+    # Note: phone removed from search_fields to prevent timing attacks
+    search_fields = ['user__username', 'user__first_name', 'user__last_name', 'college_name', 'branch', 'specialization', 'github_username']
     list_filter = ['branch', 'degree', 'gender', 'year_of_study', 'admission_year', 'cgpa', 'date_of_birth']
     readonly_fields = ('user', 'created_at')
     
@@ -81,10 +82,12 @@ class UserProfileAdmin(admin.ModelAdmin):
     
     def permanently_delete_user(self, request, queryset):
         """Custom action to permanently delete selected users and all related data"""
+        if not request.user.is_superuser:
+            self.message_user(request, "❌ Only superusers can permanently delete users.", level='error')
+            return
         deleted_count = 0
         for profile in queryset:
             if profile.user:
-                username = profile.user.username
                 profile.user.delete()
                 deleted_count += 1
         self.message_user(request, f"✓ Successfully deleted {deleted_count} user(s) and all related data from database")
@@ -136,26 +139,26 @@ class UserProfileAdmin(admin.ModelAdmin):
 @admin.register(HRProfile, site=custom_admin)
 class HRProfileAdmin(admin.ModelAdmin):
     list_display = ['user_badge', 'company_badge', 'designation', 'department', 'approval_status_badge', 'approval_requested_at']
+    # Note: Removed user__email from search to prevent enumeration
     search_fields = ['user__username', 'user__first_name', 'user__last_name', 'company_name']
     list_filter = ['is_approved', 'department', 'approval_requested_at', 'created_at']
-    readonly_fields = ('user', 'created_at', 'approval_requested_at', 'approved_at', 'approval_token')
+    # Note: approval_token removed - security sensitive field should not be visible
+    readonly_fields = ('user', 'created_at', 'approval_requested_at', 'approved_at')
     
     fieldsets = (
         ('User Info', {'fields': ('user', 'created_at')}),
         ('Company Info', {'fields': ('company_name', 'designation', 'department')}),
         ('Approval Status', {
-            'fields': ('is_approved', 'approval_requested_at', 'approved_by', 'approved_at', 'approval_token', 'rejection_reason'),
+            'fields': ('is_approved', 'approval_requested_at', 'approved_by', 'approved_at', 'rejection_reason'),
             'classes': ('collapse',),
         }),
     )
     
     def changelist_view(self, request, extra_context=None):
-        """Override changelist view to add debug info"""
+        """Override changelist view"""
         extra_context = extra_context or {}
-        # Debug: count total HR profiles
         total_profiles = HRProfile.objects.count()
         extra_context['total_hr_profiles'] = total_profiles
-        print(f"🔍 DEBUG: Total HR Profiles in DB: {total_profiles}")
         return super().changelist_view(request, extra_context)
     
     def save_model(self, request, obj, form, change):
@@ -164,9 +167,7 @@ class HRProfileAdmin(admin.ModelAdmin):
             # Make HR user a staff member
             obj.user.is_staff = True
             obj.user.save()
-            print(f"✅ Created HR Profile for {obj.user.username}")
         super().save_model(request, obj, form, change)
-        print(f"✅ Saved HR Profile: {obj.id} for user {obj.user.username}")
     
     def get_readonly_fields(self, request, obj=None):
         """Allow 'user' to be editable only when creating (not on edit)"""
@@ -192,11 +193,11 @@ class HRProfileAdmin(admin.ModelAdmin):
     
     def approval_status_badge(self, obj):
         if obj.is_approved:
-            return mark_safe(
+            return format_html(
                 '<span style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">✓ Approved</span>'
             )
         else:
-            return mark_safe(
+            return format_html(
                 '<span style="background: #f39c12; color: white; padding: 6px 12px; border-radius: 20px; font-weight: bold;">⏳ Pending</span>'
             )
     approval_status_badge.short_description = 'Status'
@@ -210,7 +211,10 @@ class HRProfileAdmin(admin.ModelAdmin):
         return qs.order_by('-created_at')
     
     def approve_hr_profile(self, request, queryset):
-        """Action to approve HR profiles"""
+        """Action to approve HR profiles - superuser only"""
+        if not request.user.is_superuser:
+            self.message_user(request, "❌ Only superusers can approve HR profiles.", level='error')
+            return
         from django.utils import timezone
         updated = 0
         for hr_profile in queryset:
@@ -224,7 +228,10 @@ class HRProfileAdmin(admin.ModelAdmin):
     approve_hr_profile.short_description = '✓ Approve selected HR profiles'
     
     def reject_hr_profile(self, request, queryset):
-        """Action to reject HR profiles"""
+        """Action to reject HR profiles - superuser only"""
+        if not request.user.is_superuser:
+            self.message_user(request, "❌ Only superusers can reject HR profiles.", level='error')
+            return
         updated = 0
         for hr_profile in queryset:
             if not hr_profile.is_approved:
@@ -332,28 +339,47 @@ class NoteAdmin(admin.ModelAdmin):
 
 @admin.register(EmailOTP, site=custom_admin)
 class EmailOTPAdmin(admin.ModelAdmin):
-    list_display = ['email_display', 'otp_display', 'created_at', 'validity_badge']
-    search_fields = ['email']
+    list_display = ['email_masked', 'otp_masked', 'created_at', 'validity_badge']
+    # Note: Removed email from search_fields to prevent enumeration attacks
+    search_fields = []
     list_filter = ['created_at']
-    readonly_fields = ('email', 'otp', 'created_at')
+    readonly_fields = ('email', 'created_at')
+    # Note: OTP field excluded from fieldsets - should never be visible
+    exclude = ('otp',)
     
     fieldsets = (
-        ('OTP Info', {'fields': ('email', 'otp', 'created_at')}),
+        ('OTP Info', {'fields': ('email', 'created_at')}),
     )
     
-    def email_display(self, obj):
-        return format_html(
-            '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px;">📧 {}</span>',
-            obj.email
-        )
-    email_display.short_description = 'Email'
+    def has_add_permission(self, request):
+        """OTPs should only be created programmatically"""
+        return False
     
-    def otp_display(self, obj):
+    def has_change_permission(self, request, obj=None):
+        """OTPs should not be editable"""
+        return False
+    
+    def email_masked(self, obj):
+        """Mask email for privacy - show only first 3 chars and domain"""
+        email = obj.email
+        if '@' in email:
+            local, domain = email.split('@', 1)
+            masked_local = local[:3] + '***' if len(local) > 3 else local[:1] + '***'
+            return format_html(
+                '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px;">📧 {}@{}</span>',
+                masked_local, domain
+            )
         return format_html(
-            '<span style="background: #f39c12; color: white; padding: 6px 12px; border-radius: 5px; font-family: monospace; font-weight: bold; font-size: 14px;">🔐 {}</span>',
-            obj.otp
+            '<span style="background: #667eea; color: white; padding: 6px 12px; border-radius: 20px;">📧 ***</span>'
         )
-    otp_display.short_description = 'OTP'
+    email_masked.short_description = 'Email'
+    
+    def otp_masked(self, obj):
+        """Never display actual OTP - security critical"""
+        return format_html(
+            '<span style="background: #95a5a6; color: white; padding: 6px 12px; border-radius: 5px; font-family: monospace;">🔐 ******</span>'
+        )
+    otp_masked.short_description = 'OTP'
     
     def validity_badge(self, obj):
         from django.utils import timezone
