@@ -56,9 +56,8 @@ try:
     
 except Exception as e:
     print("\n" + "=" * 70)
-    print(f"⚠️ Database initialization error: {str(e)}")
+    print(f"⚠️ Database initialization error: {type(e).__name__}")
     print("=" * 70)
-    import traceback
-    traceback.print_exc()
+    # Security: Don't print full traceback (leaks internal paths)
     print("\n✓ App will continue running (may have limited functionality)\n")
 

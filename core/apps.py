@@ -21,11 +21,13 @@ class CoreConfig(AppConfig):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
             
-            username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
-            email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@vakverse.com')
+            # Security: Require explicit env vars (no hardcoded fallbacks)
+            username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
+            email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
             password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
             
-            if password:
+            # Only create if ALL env vars are set
+            if username and email and password:
                 user, created = User.objects.get_or_create(
                     username=username,
                     defaults={
@@ -39,10 +41,7 @@ class CoreConfig(AppConfig):
                     user.set_password(password)
                     user.save()
                     print(f'✓ Superuser "{username}" created on startup')
-                else:
-                    # Update password if user exists
-                    if user.password != password:
-                        user.set_password(password)
-                        user.save()
-        except Exception as e:
+                # Security: Don't update password on existing users
+        except Exception:
+            # Silently fail - app will continue running
             pass
