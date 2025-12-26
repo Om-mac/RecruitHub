@@ -44,7 +44,16 @@ SECRET_KEY = _secret_key
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # ALLOWED_HOSTS can be set via environment variable on Render
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,recruithub-k435.onrender.com,vakverse.com,*.vakverse.com,testserver').split(',')
+# In production, set explicit hosts - avoid wildcards for security
+_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
+if _allowed_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
+else:
+    if DEBUG:
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
+    else:
+        # Production must have ALLOWED_HOSTS set explicitly
+        ALLOWED_HOSTS = ['vakverse.com', 'www.vakverse.com', 'recruithub-k435.onrender.com']
 
 # Custom admin URL path (security through obscurity - harder for bots to find)
 # MUST be set via environment variable in production for security
@@ -250,7 +259,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'  # Prevent CSRF but allow navigation
 CSRF_COOKIE_HTTPONLY = False  # Must be False for CSRF token in forms to work
 CSRF_COOKIE_SAMESITE = 'Lax'  # Prevent CSRF but allow form submission
 CSRF_COOKIE_AGE = 31449600  # 1 year
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://vakverse.com,https://*.vakverse.com').split(',')
+# Note: CSRF_TRUSTED_ORIGINS defined above in security settings section
 
 # Cache configuration for rate limiting
 CACHES = {
@@ -284,10 +293,15 @@ else:
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@vakverse.com')
 
 # Site URL for email links
-SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+SITE_URL = os.environ.get('SITE_URL')
+if not SITE_URL:
+    SITE_URL = 'http://localhost:8000' if DEBUG else 'https://vakverse.com'
 
-# HR Approval email
-HR_APPROVAL_EMAIL = os.environ.get('HR_APPROVAL_EMAIL', 'omtapdiya75@gmail.com')
+# HR Approval email - MUST be set via environment variable
+HR_APPROVAL_EMAIL = os.environ.get('HR_APPROVAL_EMAIL', '')
+if not HR_APPROVAL_EMAIL and not DEBUG:
+    import logging as _logging
+    _logging.warning('HR_APPROVAL_EMAIL not set - HR approval notifications will fail')
 
 # Error handling
 TEMPLATES[0]['OPTIONS']['context_processors'].append('django.template.context_processors.request')
