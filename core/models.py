@@ -5,6 +5,37 @@ from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 from .file_validators import validate_resume_file, validate_profile_photo, validate_document_file
+import uuid
+import os
+
+
+def secure_file_path(instance, filename, folder):
+    """Generate unpredictable file path using UUID
+    
+    Security: Prevents file path enumeration attacks by using
+    random UUIDs instead of original filenames.
+    Format: folder/user_id/uuid4.extension
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    user_id = instance.user.id if hasattr(instance, 'user') else 'anon'
+    new_filename = f"{uuid.uuid4().hex}{ext}"
+    return f"{folder}/{user_id}/{new_filename}"
+
+
+def profile_photo_path(instance, filename):
+    """Generate secure path for profile photos"""
+    return secure_file_path(instance, filename, 'profile_photos')
+
+
+def resume_path(instance, filename):
+    """Generate secure path for resumes"""
+    return secure_file_path(instance, filename, 'resumes')
+
+
+def document_path(instance, filename):
+    """Generate secure path for documents"""
+    return secure_file_path(instance, filename, 'documents')
+
 
 # Conditional storage for S3
 if settings.USE_S3:
@@ -25,9 +56,9 @@ class UserProfile(models.Model):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     pincode = models.CharField(max_length=10, blank=True)
-    # Files
+    # Files - Use UUID-based paths to prevent enumeration
     profile_photo = models.ImageField(
-        upload_to='profile_photos/',
+        upload_to=profile_photo_path,
         blank=True,
         null=True,
         storage=media_storage if settings.USE_S3 else None,
@@ -35,7 +66,7 @@ class UserProfile(models.Model):
         help_text="JPG or PNG, max 1 MB"
     )
     resume = models.FileField(
-        upload_to='resumes/',
+        upload_to=resume_path,
         blank=True,
         null=True,
         storage=media_storage if settings.USE_S3 else None,
@@ -87,7 +118,7 @@ class Document(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     file = models.FileField(
-        upload_to='documents/',
+        upload_to=document_path,
         storage=media_storage if settings.USE_S3 else None,
         validators=[validate_document_file],
         help_text="PDF, JPG, or PNG - max 5 MB"
