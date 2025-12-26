@@ -56,19 +56,24 @@ class Command(BaseCommand):
         # Check if superuser already exists
         try:
             user = User.objects.get(username=username)
-            # Update existing user
-            user.email = email
-            user.set_password(password)
-            user.is_staff = True
-            user.is_superuser = True
-            user.save()
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Updated superuser: {username}'
+            # SECURITY: Don't reset password on every deploy - only ensure superuser status
+            if not user.is_superuser or not user.is_staff:
+                user.is_staff = True
+                user.is_superuser = True
+                user.save(update_fields=['is_staff', 'is_superuser'])
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Ensured superuser privileges for: {username}'
+                    )
                 )
-            )
+            else:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'✅ Superuser already exists: {username} (password unchanged)'
+                    )
+                )
         except User.DoesNotExist:
-            # Create new superuser
+            # Create new superuser only if doesn't exist
             user = User.objects.create_superuser(
                 username=username,
                 email=email,
