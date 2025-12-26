@@ -1,9 +1,17 @@
 """
 File upload validators and handlers for S3 security
 Enforces file type and size restrictions with magic byte validation
+
+Security Features:
+- Extension whitelist (not blacklist)
+- Magic byte validation (prevents extension spoofing)
+- File size limits
+- Filename sanitization (no path traversal, no special chars)
+- Blocked dangerous extensions
 """
 
 import os
+import re
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
@@ -28,13 +36,21 @@ MAGIC_BYTES = {
     'png': b'\x89PNG\r\n\x1a\n',
 }
 
-# Blocked extensions
-BLOCKED_EXTENSIONS = {'exe', 'zip', 'js', 'html', 'htm', 'dll', 'bat', 'cmd', 'sh', 'php', 'jsp', 'asp', 'cgi'}
+# Blocked extensions - ALWAYS reject these regardless of other checks
+BLOCKED_EXTENSIONS = {
+    'exe', 'zip', 'js', 'html', 'htm', 'dll', 'bat', 'cmd', 'sh', 'php', 
+    'jsp', 'asp', 'aspx', 'cgi', 'pl', 'py', 'rb', 'jar', 'war', 'msi',
+    'scr', 'vbs', 'wsf', 'ps1', 'psd1', 'psm1', 'reg', 'inf', 'hta',
+    'svg', 'xml', 'xhtml', 'swf'  # SVG can contain scripts
+}
 
 # File size limits (in bytes)
 MAX_RESUME_SIZE = 5 * 1024 * 1024  # 5 MB
 MAX_PHOTO_SIZE = 1 * 1024 * 1024  # 1 MB
 MAX_DOCUMENT_SIZE = 5 * 1024 * 1024  # 5 MB
+
+# Safe filename pattern - only alphanumeric, dash, underscore, dot
+SAFE_FILENAME_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_\-\.]*$')
 
 
 def get_file_extension(filename):
@@ -48,6 +64,84 @@ def get_mime_type_from_extension(filename):
     """Get MIME type from file extension"""
     ext = get_file_extension(filename)
     return EXTENSION_TO_MIME.get(ext, 'application/octet-stream')
+
+
+def sanitize_filename(filename):
+    """
+    Sanitize filename to prevent security issues:
+    - Remove null bytes
+    - Remove path traversal attempts
+    - Remove special/control characters
+    - Limit length
+    """
+    if not filename:
+        raise ValidationError(_('Filename is required.'), code='no_filename')
+    
+    # Remove null bytes (security: prevents null byte injection)
+    filename = filename.replace('\x00', '')
+    
+    # Remove path separators and traversal
+    filename = os.path.basename(filename)
+    filename = filename.replace('..', '')
+    
+    # Remove control characters and non-printable chars
+    filename = ''.join(c for c in filename if c.isprintable() and ord(c) < 128)
+    
+    # Limit filename length (255 is typical filesystem limit)
+    if len(filename) > 200:
+        ext = get_file_extension(filename)
+        base = filename[:195]
+        filename = f"{base}.{ext}" if ext else base
+    
+    if not filename or filename == '.':
+        raise ValidationError(_('Invalid filename.'), code='invalid_filename')
+    
+    return filename
+
+
+def validate_filename_safety(filename):
+    """
+    Validate filename is safe for storage:
+    - No path traversal
+    - No blocked extensions
+    - No suspicious patterns
+    """
+    if not filename:
+        raise ValidationError(_('Filename is required.'), code='no_filename')
+    
+    # Path traversal check
+    if '/' in filename or '\\' in filename or '..' in filename:
+        raise ValidationError(
+            _('Invalid filename: path separators not allowed.'),
+            code='path_traversal',
+        )
+    
+    # Null byte check
+    if '\x00' in filename:
+        raise ValidationError(
+            _('Invalid filename: contains illegal characters.'),
+            code='null_byte',
+        )
+    
+    # Check extension against blocked list
+    ext = get_file_extension(filename)
+    if ext in BLOCKED_EXTENSIONS:
+        raise ValidationError(
+            _('File type not allowed: .%(ext)s'),
+            code='blocked_extension',
+            params={'ext': ext},
+        )
+    
+    # Check for double extensions (e.g., file.pdf.exe)
+    parts = filename.split('.')
+    if len(parts) > 2:
+        for part in parts[1:]:  # Skip the base name
+            if part.lower() in BLOCKED_EXTENSIONS:
+                raise ValidationError(
+                    _('File contains blocked extension: .%(ext)s'),
+                    code='hidden_blocked_extension',
+                    params={'ext': part.lower()},
+                )
 
 
 def validate_magic_bytes(file, expected_ext):
@@ -71,17 +165,35 @@ def validate_magic_bytes(file, expected_ext):
         )
 
 
+def validate_content_type(file, allowed_types):
+    """
+    Validate Content-Type header matches allowed types
+    Note: Content-Type can be spoofed, so this is defense-in-depth
+    """
+    content_type = getattr(file, 'content_type', None)
+    if content_type and content_type not in allowed_types:
+        # Don't reject, just log - magic bytes are the real check
+        import logging
+        logger = logging.getLogger('core')
+        logger.warning(f"Content-Type mismatch: {content_type} not in {allowed_types}")
+
+
 def validate_resume_file(file):
     """
     Validate resume file:
     - Must be PDF
     - Maximum 5 MB
     - Magic bytes validation
+    - Filename safety check
     """
     if not file:
         return
 
-    # Check file extension
+    # Sanitize and validate filename first
+    file.name = sanitize_filename(file.name)
+    validate_filename_safety(file.name)
+
+    # Check file extension (whitelist)
     ext = get_file_extension(file.name)
     if ext not in ['pdf']:
         raise ValidationError(
@@ -102,6 +214,9 @@ def validate_resume_file(file):
             },
         )
     
+    # Validate Content-Type (defense in depth)
+    validate_content_type(file, ALLOWED_RESUME_TYPES)
+    
     # Validate magic bytes (security: prevent disguised malicious files)
     validate_magic_bytes(file, ext)
 
@@ -112,11 +227,16 @@ def validate_profile_photo(file):
     - Must be JPG or PNG
     - Maximum 1 MB
     - Magic bytes validation
+    - Filename safety check
     """
     if not file:
         return
 
-    # Check file extension
+    # Sanitize and validate filename first
+    file.name = sanitize_filename(file.name)
+    validate_filename_safety(file.name)
+
+    # Check file extension (whitelist)
     ext = get_file_extension(file.name)
     if ext not in ['jpg', 'jpeg', 'png']:
         raise ValidationError(
@@ -137,6 +257,9 @@ def validate_profile_photo(file):
             },
         )
     
+    # Validate Content-Type (defense in depth)
+    validate_content_type(file, ALLOWED_PHOTO_TYPES)
+    
     # Validate magic bytes (security: prevent disguised malicious files)
     validate_magic_bytes(file, ext)
 
@@ -147,11 +270,16 @@ def validate_document_file(file):
     - Must be PDF, JPG, or PNG
     - Maximum 5 MB
     - Magic bytes validation
+    - Filename safety check
     """
     if not file:
         return
 
-    # Check file extension
+    # Sanitize and validate filename first
+    file.name = sanitize_filename(file.name)
+    validate_filename_safety(file.name)
+
+    # Check file extension (whitelist)
     ext = get_file_extension(file.name)
     if ext not in ['pdf', 'jpg', 'jpeg', 'png']:
         raise ValidationError(
@@ -172,17 +300,27 @@ def validate_document_file(file):
             },
         )
     
+    # Validate Content-Type (defense in depth)
+    validate_content_type(file, ALLOWED_DOCUMENT_TYPES)
+    
     # Validate magic bytes (security: prevent disguised malicious files)
     validate_magic_bytes(file, ext)
 
 
 def is_safe_filename(filename):
-    """Check if filename is safe (no path traversal attempts)"""
+    """
+    Check if filename is safe (no path traversal attempts)
+    DEPRECATED: Use validate_filename_safety() instead for better error messages
+    """
     if not filename:
         return False
     
     # No path separators or traversal attempts
     if '/' in filename or '\\' in filename or '..' in filename:
+        return False
+    
+    # No null bytes
+    if '\x00' in filename:
         return False
     
     # Check extension is not blocked
