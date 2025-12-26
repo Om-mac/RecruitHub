@@ -40,7 +40,7 @@
                         
                         <div class="mb-4">
                             <label for="id_email" class="form-label">Email Address</label>
-                            <input type="email" name="email" id="id_email" class="form-control form-control-lg {% if form.email.errors %}is-invalid{% endif %}" placeholder="Enter your email" required autofocus>
+                            <input type="email" name="email" id="id_email" class="form-control form-control-lg {% if form.email.errors %}is-invalid{% endif %}" placeholder="Enter your email" required autofocus autocomplete="email">
                             {% if form.email.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.email.errors.0 }}
