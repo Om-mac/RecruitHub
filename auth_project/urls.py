@@ -25,7 +25,8 @@ from core.admin import custom_admin
 from core.views import StudentLoginView
 
 # Get admin URL path from settings (configurable via ADMIN_URL_PATH env var)
-ADMIN_URL = getattr(settings, 'ADMIN_URL_PATH', 'admintapdiyaom')
+# Security: No hardcoded fallback - settings.py generates random path if not set
+ADMIN_URL = getattr(settings, 'ADMIN_URL_PATH', 'admin')
 
 urlpatterns = [
     path(f"{ADMIN_URL}/", custom_admin.urls),
@@ -33,7 +34,12 @@ urlpatterns = [
     path('accounts/login/', StudentLoginView.as_view(), name='login'),
     path('accounts/logout/', LogoutView.as_view(), name='logout'),
     path('', include('core.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
+
+# Only serve media files locally in DEBUG mode
+# In production, media files are served via S3 presigned URLs
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Error handlers
 handler400 = error_views.error_400
