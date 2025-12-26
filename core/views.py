@@ -50,7 +50,11 @@ def send_hr_approval_email(hr_profile, approval_token):
         logger.info(f"   User: {hr_profile.user.username}")
         logger.info("=" * 80)
         
-        admin_email = getattr(settings, 'HR_APPROVAL_EMAIL', 'omtapdiya75@gmail.com')
+        admin_email = getattr(settings, 'HR_APPROVAL_EMAIL', '')
+        if not admin_email:
+            logger.error("HR_APPROVAL_EMAIL not configured - cannot send approval email")
+            return
+        
         user = hr_profile.user
         
         logger.info(f"[STEP 2] Email Configuration:")
@@ -326,10 +330,13 @@ def hr_register_step1_email(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             
-            # Check if HR already exists
-            if User.objects.filter(email=email).exists():
-                messages.error(request, 'This email is already registered.')
-                return render(request, 'core/hr_register_step1_email.html', {'form': form})
+            # Security: Don't reveal if email exists - always show same message
+            email_exists = User.objects.filter(email=email).exists()
+            
+            if email_exists:
+                # Don't reveal that email exists - show generic message
+                messages.success(request, 'If this email is not already registered, an OTP will be sent.')
+                return redirect('hr_register_step1_email')
             
             # Check rate limiting for OTP requests
             try:
@@ -532,7 +539,6 @@ def hr_register_step3_create_account(request):
     return render(request, 'core/hr_register_step3_create_account.html', {'form': user_form, 'email': email})
 
 
-@login_required(login_url='hr_login')
 @login_required(login_url='hr_login')
 def hr_dashboard(request):
     """HR Dashboard - View and filter students"""
@@ -935,20 +941,48 @@ def register_step1_email(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             
-            # Check if email already registered
-            if User.objects.filter(email=email).exists():
-                messages.error(request, 'This email is already registered.')
+            # Security: Don't reveal if email exists - always show same message
+            # But only create OTP if email is not already registered
+            email_exists = User.objects.filter(email=email).exists()
+            
+            if email_exists:
+                # Don't reveal that email exists - show generic message
+                messages.success(request, 'If this email is not already registered, an OTP will be sent.')
                 return redirect('register_step1_email')
+            
+            # Check rate limiting for OTP requests (anti-spam)
+            try:
+                existing_otp = EmailOTP.objects.get(email=email)
+                
+                # Check if locked out due to failed attempts
+                if existing_otp.is_locked_out():
+                    minutes = EmailOTP.ATTEMPT_LOCKOUT_MINUTES
+                    messages.error(request, f'Too many attempts. Please try again in {minutes} minutes.')
+                    return render(request, 'core/register_step1_email.html', {'form': form})
+                
+                # Check rate limit for requesting new OTP
+                can_request, wait_seconds = existing_otp.can_request_otp()
+                if not can_request:
+                    messages.warning(request, f'Please wait {wait_seconds} seconds before requesting a new OTP.')
+                    return render(request, 'core/register_step1_email.html', {'form': form})
+                
+                # Check hourly request limit
+                hourly_requests = existing_otp.get_hourly_request_count()
+                if hourly_requests >= EmailOTP.MAX_ATTEMPTS_PER_HOUR:
+                    messages.error(request, 'Too many OTP requests. Please try again later.')
+                    return render(request, 'core/register_step1_email.html', {'form': form})
+                    
+            except EmailOTP.DoesNotExist:
+                pass  # New email, no rate limiting needed
             
             # Generate and save OTP
             try:
-                otp_obj = EmailOTP.objects.filter(email=email).first()
-                if otp_obj:
-                    # Delete old OTP record
-                    otp_obj.delete()
+                # Delete any existing OTP for this email
+                EmailOTP.objects.filter(email=email).delete()
                 
                 otp = generate_otp()
-                EmailOTP.objects.create(email=email, otp=otp)
+                email_otp = EmailOTP.objects.create(email=email, otp=otp)
+                email_otp.record_otp_request()
                 
                 # Send OTP via email
                 send_otp_email(email, otp)
