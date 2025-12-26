@@ -1,7 +1,7 @@
 # 🔐 Admin Access Guide
 
 ## Admin Dashboard Location
-**URL:** `https://vakverse.com/admintapdiyaom/` (or your production domain)
+**URL:** `https://vakverse.com/<ADMIN_URL_PATH>/` (set via `ADMIN_URL_PATH` environment variable)
 
 ## Login Credentials
 - **Username:** `tapdiyaom`

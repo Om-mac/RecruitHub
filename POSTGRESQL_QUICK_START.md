@@ -140,7 +140,7 @@ If you see errors, share the log screenshot!
 After deployment, test by visiting your app:
 
 ```
-https://recruitapp-backend.onrender.com/admintapdiyaom/
+https://recruitapp-backend.onrender.com/<YOUR_ADMIN_PATH>/
 ```
 
 If you see:

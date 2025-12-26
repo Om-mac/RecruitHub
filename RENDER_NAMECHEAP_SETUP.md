@@ -191,7 +191,7 @@ curl https://recruitapp-backend.onrender.com/login/
 ```bash
 # Test with your domain
 curl https://yourdomain.com/
-curl https://yourdomain.com/admintapdiyaom/
+curl https://yourdomain.com/<YOUR_ADMIN_PATH>/
 curl https://yourdomain.com/hr/login/
 ```
 
@@ -203,7 +203,7 @@ curl https://yourdomain.com/hr/login/
 
 ```
 Main App:        https://yourdomain.com
-Admin Panel:     https://yourdomain.com/admintapdiyaom/
+Admin Panel:     https://yourdomain.com/<YOUR_ADMIN_PATH>/
 HR Portal:       https://yourdomain.com/hr/login/
 Student Portal:  https://yourdomain.com/login/
 API:             https://api.yourdomain.com/  (if separated)

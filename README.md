@@ -99,7 +99,7 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 - **is_staff:** True
 - **Has Profile:** None (no student or HR profile)
 - **Permissions:** Full system access, user management, HR approval
-- **Login:** `/admintapdiyaom/` (Django Admin)
+- **Login:** `/<ADMIN_URL_PATH>/` (Django Admin - set via environment variable)
 - **Auto-created:** From environment variables on first deployment
 
 **Key Features:**
@@ -618,7 +618,7 @@ RecruitHub/
 ## Testing Accounts
 
 ### Admin Account
-- **URL:** `/admintapdiyaom/` (configure in environment)
+- **URL:** `/<ADMIN_URL_PATH>/` (set `ADMIN_URL_PATH` environment variable)
 - **Username:** Set via `DJANGO_SUPERUSER_USERNAME`
 - **Email:** Set via `DJANGO_SUPERUSER_EMAIL`
 - **Password:** Set via `DJANGO_SUPERUSER_PASSWORD`
@@ -710,7 +710,7 @@ python manage.py runserver
 ```
 
 Access at: `http://localhost:8000`
-Admin at: `http://localhost:8000/admintapdiyaom/`
+Admin at: `http://localhost:8000/<ADMIN_URL_PATH>/`
 
 ### Default Accounts
 
