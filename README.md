@@ -497,9 +497,9 @@ DEBUG=False
 ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
 
 # Superuser (Auto-creation)
-DJANGO_SUPERUSER_USERNAME=tapdiyaom
-DJANGO_SUPERUSER_EMAIL=your-email@gmail.com
-DJANGO_SUPERUSER_PASSWORD=secure-password
+DJANGO_SUPERUSER_USERNAME=your-admin-username
+DJANGO_SUPERUSER_EMAIL=your-email@example.com
+DJANGO_SUPERUSER_PASSWORD=your-secure-password-min-16-chars
 
 # Email (Resend)
 RESEND_API_KEY=your-resend-api-key
@@ -837,9 +837,9 @@ python manage.py createsuperuser
 
 **Project Repository:** [RecruitHub on GitHub](https://github.com/Om-mac/RecruitHub)
 
-**Developer:** Om Tapdiya
+**Developer:** RecruitHub Team
 
-**Email:** tapdiya75@gmail.com (for queries, not credentials)
+**Issues & Support:** Create an issue on GitHub repository
 
 **Issues & Bugs:** Create an issue on GitHub repository
 

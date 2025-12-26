@@ -4,7 +4,7 @@
 **URL:** `https://vakverse.com/<ADMIN_URL_PATH>/` (set via `ADMIN_URL_PATH` environment variable)
 
 ## Login Credentials
-- **Username:** `tapdiyaom`
+- **Username:** Set via `DJANGO_SUPERUSER_USERNAME` environment variable
 - **Password:** `RZd/148*488+GZraffe-`
 
 ---

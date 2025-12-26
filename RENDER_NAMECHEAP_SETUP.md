@@ -22,7 +22,7 @@
 ### A. Add all deployment files
 
 ```bash
-cd /Users/tapdiyaom/Desktop/Authentication
+cd /path/to/your/project
 
 # Check what's ready to push
 git status

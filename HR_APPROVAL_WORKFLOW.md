@@ -30,7 +30,7 @@ STEP 3: Create Account
 ├─ Success message: "Awaiting admin approval"
 ├─ Redirects to HR Login page
 │
-└─ ✉️ APPROVAL EMAIL SENT TO: omtapdiya75@gmail.com
+└─ ✉️ APPROVAL EMAIL SENT TO: <HR_APPROVAL_EMAIL>
     ├─ HR Details:
     │  ├─ Username
     │  ├─ Name (First + Last)
@@ -120,7 +120,7 @@ STEP 3: Create Account
 ## Email Notifications
 
 ### 1. Approval Request Email (Admin)
-**Sent to:** omtapdiya75@gmail.com  
+**Sent to:** (configured via HR_APPROVAL_EMAIL)  
 **When:** Immediately after HR completes registration  
 **Contains:**
 - HR applicant full details (username, name, email)
@@ -270,13 +270,13 @@ path('admin/reject-hr/<str:token>/', views.reject_hr_account, name='reject_hr_ac
 
 For **Production (Render/Deployment):**
 ```
-HR_APPROVAL_EMAIL=omtapdiya75@gmail.com  # Admin email for approvals
+HR_APPROVAL_EMAIL=admin@yourdomain.com  # Admin email for approvals
 SITE_URL=https://vakverse.com          # For approval links in emails
 ```
 
 For **Development (Local):**
 ```
-HR_APPROVAL_EMAIL=omtapdiya75@gmail.com  # (optional, defaults to this)
+HR_APPROVAL_EMAIL=admin@yourdomain.com  # Your admin email
 SITE_URL=http://localhost:8000           # (optional, defaults to this)
 ```
 
