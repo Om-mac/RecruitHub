@@ -47,9 +47,10 @@ urlpatterns = [
     path('hr/student/<int:user_id>/', views.student_detail, name='student_detail'),
     path('hr/logout/', views.hr_logout, name='hr_logout'),
     
-    # HR Approval URLs
-    path('admin/approve-hr/<str:token>/', views.approve_hr_account, name='approve_hr_account'),
-    path('admin/reject-hr/<str:token>/', views.reject_hr_account, name='reject_hr_account'),
+    # HR Approval URLs - Use obscure paths (not /admin/ to avoid path scanning)
+    # Security: These endpoints require superuser authentication regardless of path
+    path('hr-mgmt/approve/<str:token>/', views.approve_hr_account, name='approve_hr_account'),
+    path('hr-mgmt/reject/<str:token>/', views.reject_hr_account, name='reject_hr_account'),
     
     # Forgot Username URLs
     path('forgot-username/', views.forgot_username_student, name='forgot_username_student'),

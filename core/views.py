@@ -62,16 +62,16 @@ def send_hr_approval_email(hr_profile, approval_token):
         logger.info(f"   From Email: {settings.DEFAULT_FROM_EMAIL}")
         logger.info(f"   Backend: {settings.EMAIL_BACKEND}")
         
-        # Generate approval and rejection URLs
+        # Generate approval and rejection URLs (using obscure paths)
         site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
-        approval_url = f"{site_url}/admin/approve-hr/{approval_token}/"
-        rejection_url = f"{site_url}/admin/reject-hr/{approval_token}/"
+        approval_url = f"{site_url}/hr-mgmt/approve/{approval_token}/"
+        rejection_url = f"{site_url}/hr-mgmt/reject/{approval_token}/"
         
         logger.info(f"[STEP 3] URLs Generated:")
         logger.info(f"   Site URL: {site_url}")
         logger.info(f"   Approval Token: {approval_token[:20]}... (truncated)")
-        logger.info(f"   Approval URL: {approval_url}")
-        logger.info(f"   Rejection URL: {rejection_url}")
+        # Security: Don't log full approval URLs
+        logger.info(f"   Approval/Rejection URLs generated")
         
         subject = f"New HR Registration - {user.username} from {hr_profile.company_name}"
         
