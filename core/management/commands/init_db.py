@@ -60,9 +60,9 @@ class Command(BaseCommand):
             if username and email and password:
                 if not User.objects.filter(username=username).exists():
                     User.objects.create_superuser(username, email, password)
-                    self.stdout.write(self.style.SUCCESS(f'✓ Created superuser: {username}'))
+                    self.stdout.write(self.style.SUCCESS(f'✓ Created superuser'))
                 else:
-                    self.stdout.write(self.style.SUCCESS(f'✓ Superuser already exists: {username}'))
+                    self.stdout.write(self.style.SUCCESS(f'✓ Superuser already exists'))
             else:
                 self.stdout.write(self.style.WARNING('⚠ Superuser environment variables not set'))
         except Exception as e:
