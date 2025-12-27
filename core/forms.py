@@ -445,3 +445,61 @@ class NoteForm(forms.ModelForm):
     def clean_content(self):
         """Sanitize note content to prevent XSS"""
         return sanitize_input(self.cleaned_data.get('content'))
+class UserRegistrationForm:
+    class UserRegistrationForm(forms.ModelForm):
+        password = forms.CharField(
+            widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'})
+        )
+        password_confirm = forms.CharField(
+            widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'})
+        )
+
+        class Meta:
+            model = User
+            fields = ['username', 'email', 'first_name', 'last_name']
+            widgets = {
+                'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}),
+                'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'}),
+                'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First Name'}),
+                'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last Name'}),
+            }
+
+        def clean_username(self):
+            username = sanitize_input(self.cleaned_data.get('username'))
+            if not username:
+                raise forms.ValidationError('Username is required.')
+            validate_username_format(username)
+            if User.objects.filter(username=username).exists():
+                raise forms.ValidationError('This username already exists. Please choose another.')
+            return username
+
+        def clean_email(self):
+            email = sanitize_input(self.cleaned_data.get('email'))
+            if not email:
+                raise forms.ValidationError('Email is required.')
+            email = email.lower()
+            if User.objects.filter(email=email).exists():
+                raise forms.ValidationError('This email is already registered.')
+            return email
+
+        def clean_first_name(self):
+            first_name = sanitize_input(self.cleaned_data.get('first_name'))
+            if not first_name:
+                raise forms.ValidationError('First name is required.')
+            return first_name
+
+        def clean_last_name(self):
+            last_name = sanitize_input(self.cleaned_data.get('last_name'))
+            if not last_name:
+                raise forms.ValidationError('Last name is required.')
+            return last_name
+
+        def clean_password(self):
+            password = self.cleaned_data.get('password')
+            return validate_password_strength(password)
+
+        def clean(self):
+            cleaned_data = super().clean()
+            if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
+                raise forms.ValidationError('Passwords do not match.')
+            return cleaned_data
