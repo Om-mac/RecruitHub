@@ -66,12 +66,6 @@ class Command(BaseCommand):
                         f'✅ Ensured superuser privileges for: {username}'
                     )
                 )
-            else:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f'✅ Superuser already exists: {username} (password unchanged)'
-                    )
-                )
         except User.DoesNotExist:
             # Create new superuser only if doesn't exist
             user = User.objects.create_superuser(

@@ -405,7 +405,7 @@ git push origin main
    from django.contrib.auth.models import User
    from core.models import HRProfile
    
-   user = User.objects.create_user(username='hr_admin', password='hr123456')
+   user = User.objects.create_user(username='hr_admin', password='YOUR_SECURE_PASSWORD_HERE')
    HRProfile.objects.create(user=user, company_name='Your Company')
    ```
 

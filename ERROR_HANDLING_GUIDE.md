@@ -52,7 +52,7 @@ if not User.objects.filter(username='hr').exists():
     user = User.objects.create_user(
         username='hr',
         email='hr@example.com',
-        password='HRPassword123!',
+        password='YOUR_SECURE_PASSWORD_HERE',  # Use a strong password!
         first_name='HR',
         last_name='Admin'
     )

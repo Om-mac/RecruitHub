@@ -44,11 +44,7 @@ def send_hr_approval_email(hr_profile, approval_token):
     Send HR account approval request email to admin
     """
     try:
-        logger.info("=" * 80)
-        logger.info("🔔 [STEP 1] send_hr_approval_email() CALLED")
-        logger.info(f"   HR Profile ID: {hr_profile.id}")
-        logger.info(f"   User: {hr_profile.user.username}")
-        logger.info("=" * 80)
+        logger.debug(f"Processing HR approval email for user: {hr_profile.user.username}")
         
         admin_email = getattr(settings, 'HR_APPROVAL_EMAIL', '')
         if not admin_email:
@@ -57,21 +53,15 @@ def send_hr_approval_email(hr_profile, approval_token):
         
         user = hr_profile.user
         
-        logger.info(f"[STEP 2] Email Configuration:")
-        logger.info(f"   Admin Email: {admin_email}")
-        logger.info(f"   From Email: {settings.DEFAULT_FROM_EMAIL}")
-        logger.info(f"   Backend: {settings.EMAIL_BACKEND}")
+        # Security: Don't log actual email addresses
+        logger.debug(f"[STEP 2] Email configuration loaded")
         
         # Generate approval and rejection URLs (using obscure paths)
         site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
         approval_url = f"{site_url}/hr-mgmt/approve/{approval_token}/"
         rejection_url = f"{site_url}/hr-mgmt/reject/{approval_token}/"
         
-        logger.info(f"[STEP 3] URLs Generated:")
-        logger.info(f"   Site URL: {site_url}")
-        logger.info(f"   Approval Token: {approval_token[:20]}... (truncated)")
-        # Security: Don't log full approval URLs
-        logger.info(f"   Approval/Rejection URLs generated")
+        logger.debug(f"[STEP 3] Approval URLs generated")
         
         subject = f"New HR Registration - {user.username} from {hr_profile.company_name}"
         
@@ -93,15 +83,9 @@ REJECT: {rejection_url}
 This is an automated email from RecruitHub Admin Panel.
         """
         
-        logger.info(f"[STEP 4] Email Content Prepared:")
-        logger.info(f"   Subject: {subject}")
-        logger.info(f"   To: {admin_email}")
-        logger.info(f"   From: {settings.DEFAULT_FROM_EMAIL}")
-        logger.info(f"   Message Length: {len(message)} characters")
+        logger.debug(f"[STEP 4] Email prepared for HR: {user.username}")
         
         # Send using Django's send_mail
-        logger.info(f"[STEP 5] Calling Django send_mail()...")
-        
         result = send_mail(
             subject,
             message,
@@ -110,19 +94,10 @@ This is an automated email from RecruitHub Admin Panel.
             fail_silently=False,
         )
         
-        logger.info(f"[STEP 6] send_mail() RETURNED: {result}")
-        
         if result:
-            logger.info(f"✅ SUCCESS: HR approval email sent successfully!")
-            logger.info(f"   User: {user.username}")
-            logger.info(f"   To: {admin_email}")
-            logger.info(f"   Subject: {subject}")
-            logger.info("=" * 80)
+            logger.info(f"✅ HR approval email sent for user: {user.username}")
         else:
-            logger.error(f"❌ ERROR: send_mail() returned 0 (no emails sent)")
-            logger.error(f"   User: {user.username}")
-            logger.error(f"   To: {admin_email}")
-            logger.error("=" * 80)
+            logger.error(f"❌ HR approval email failed for user: {user.username}")
             
     except Exception as e:
         logger.error("=" * 80)
@@ -1223,7 +1198,7 @@ RecruitHub Team
             [user.email],
             fail_silently=False,
         )
-        logger.info(f"HR approval confirmation email sent to {user.email}")
+        logger.info(f"HR approval confirmation email sent to user: {user.username}")
     except Exception as e:
         logger.error(f"Failed to send approval confirmation email to {user.email}: {str(e)}")
 
@@ -1254,7 +1229,7 @@ RecruitHub Team
             [email],
             fail_silently=False,
         )
-        logger.info(f"HR rejection email sent to {email}")
+        logger.info(f"HR rejection email sent")
     except Exception as e:
         logger.error(f"Failed to send rejection email to {email}: {str(e)}")
 
@@ -1285,7 +1260,7 @@ RecruitHub Team
             [email],
             fail_silently=False,
         )
-        logger.info(f"✅ Username recovery email sent to {email}")
+        logger.info(f"✅ Username recovery email sent")
         return True
     except Exception as e:
         logger.error(f"❌ Failed to send username recovery email to {email}: {str(e)}", exc_info=True)
