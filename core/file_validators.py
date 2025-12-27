@@ -221,7 +221,7 @@ def validate_resume_file(file):
     validate_magic_bytes(file, ext)
 
 
-def validate_profile_photo(file: UploadedFile):
+def validate_profile_photo(file):
     """
     Validate profile photo:
     - Must be JPG or PNG
