@@ -27,13 +27,13 @@ class Command(BaseCommand):
             
             if User.objects.filter(username=username).exists():
                 self.stdout.write(
-                    self.style.WARNING(f'Superuser "{username}" already exists. Skipping.')
+                    self.style.WARNING(f'Superuser already exists. Skipping.')
                 )
                 return
             
             User.objects.create_superuser(username, email, password)
             self.stdout.write(
-                self.style.SUCCESS(f'✓ Successfully created superuser "{username}"')
+                self.style.SUCCESS(f'✓ Successfully created superuser ')
             )
         except Exception as e:
             self.stdout.write(

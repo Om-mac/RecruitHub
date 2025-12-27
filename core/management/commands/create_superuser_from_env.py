@@ -75,7 +75,7 @@ class Command(BaseCommand):
             )
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'✅ Created superuser: {username}'
+                    f'✅ Created superuser'
                 )
             )
         
