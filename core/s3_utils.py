@@ -78,14 +78,14 @@ def get_s3_client():
 def generate_presigned_url(file_path, expiration=300):
     """
     Generate presigned URL for S3 file
-    
+
     Args:
         file_path: S3 object key (e.g., 'profile_photos/file.jpg')
         expiration: URL validity in seconds (default: 300 = 5 minutes)
-    
+
     Returns:
         Presigned URL string or None if error
-        
+
     Security:
         - URL expires automatically (default 5 minutes)
         - Requires AWS signature authentication
@@ -95,63 +95,49 @@ def generate_presigned_url(file_path, expiration=300):
     if not settings.USE_S3:
         # Local development: return local file URL
         return f'/media/{file_path}'
-    
+
     # Security: Sanitize file path to prevent traversal attacks
     file_path = sanitize_s3_path(file_path)
     if not file_path:
         logger.warning('Invalid file path rejected')
         return None
-    
+
     # Validate expiration is within 1-5 minutes
     if expiration < 60 or expiration > 300:
         expiration = 300  # Default to 5 minutes
-    
+
+    s3_client = get_s3_client()
+    if not s3_client:
+        # S3 client unavailable: surface failure so caller can return a proper error.
+        logger.error('S3 client unavailable - cannot generate presigned URL')
+        return None
+
+    # Add media/ prefix if not already present (django-storages stores files under media/)
+    s3_key = file_path if file_path.startswith('media/') else f'media/{file_path}'
+
     try:
-        s3_client = get_s3_client()
-        if not s3_client:
-            # Fallback to local storage if S3 client unavailable
-            return f'/media/{file_path}'
-        
-        # Add media/ prefix if not already present (django-storages stores files under media/)
-        s3_key = file_path if file_path.startswith('media/') else f'media/{file_path}'
-        
-        # Try to generate presigned URL
-        try:
-            presigned_url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                    'Key': s3_key,
-                },
-                ExpiresIn=expiration,
-            )
-            
-            # Security: Don't log the URL or bucket name
-            logger.debug(f'Presigned URL generated with {expiration}s expiration')
-            
-            return presigned_url
-        except ClientError as e:
-            # If file doesn't exist in S3, try local storage fallback
-            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            if error_code == 'NoSuchKey':
-                # Security: Don't log file path (may contain user IDs)
-                logger.warning('File not found in S3, falling back to local storage')
-                # Return local file URL as fallback
-                return f'/media/{file_path}'
-            else:
-                raise
-        
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                'Key': s3_key,
+            },
+            ExpiresIn=expiration,
+        )
+        # Security: Don't log the URL or bucket name
+        logger.debug('Presigned URL generated')
+        return presigned_url
+
     except ClientError as e:
-        # Don't expose S3 error details (may contain bucket/credentials info)
+        # Surface specific S3 error codes to caller (do NOT return unsigned S3 URLs)
         error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-        logger.error(f'Failed to generate presigned URL: {error_code}')
-        # Fallback to local storage
-        return f'/media/{file_path}'
-    except Exception as e:
-        # Log generic error without details
+        logger.warning(f'ClientError generating presigned URL: {error_code}')
+        # Return None so caller can choose an appropriate response (404/500)
+        return None
+
+    except Exception:
         logger.error('Unexpected error generating presigned URL')
-        # Fallback to local storage
-        return f'/media/{file_path}'
+        return None
 
 
 def generate_presigned_urls_batch(file_paths, expiration=300):

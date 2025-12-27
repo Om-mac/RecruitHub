@@ -35,3 +35,21 @@ class FileValidatorTests(TestCase):
         # Should not raise
         result = form.clean_profile_photo()
         self.assertIs(result, upload)
+
+    def test_generate_presigned_url_access_denied_returns_none(self):
+        """Simulate S3 ClientError AccessDenied and ensure helper returns None"""
+        from botocore.exceptions import ClientError
+        # Monkeypatch get_s3_client to return a fake client that raises AccessDenied
+        import core.s3_utils as s3u
+
+        class FakeClient:
+            def generate_presigned_url(self, *args, **kwargs):
+                raise ClientError({'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}, 'GetObject')
+
+        orig_get = s3u.get_s3_client
+        try:
+            s3u.get_s3_client = lambda: FakeClient()
+            url = s3u.generate_presigned_url('resumes/1/some.pdf', expiration=60)
+            self.assertIsNone(url)
+        finally:
+            s3u.get_s3_client = orig_get
