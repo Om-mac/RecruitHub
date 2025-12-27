@@ -181,13 +181,23 @@ class UserProfileForm(forms.ModelForm):
             }),
         }
     
+    from django.core.files.uploadedfile import UploadedFile
+
     def clean_profile_photo(self):
-        """Validate profile photo file"""
-        file = self.cleaned_data.get('profile_photo')
-        if file:
-            validate_profile_photo(file)
-        return file
+        file = self.cleaned_data.get("profile_photo")
     
+        # ✅ No new upload → skip validation
+        if not file:
+            return file
+    
+        # ✅ Existing S3 file (FieldFile) → skip validation
+        if not isinstance(file):
+            return file
+    
+        # ✅ Only validate freshly uploaded files
+        validate_profile_photo(file)
+        return file
+        
     def clean_resume(self):
         """Validate resume file"""
         file = self.cleaned_data.get('resume')
@@ -401,61 +411,60 @@ class NoteForm(forms.ModelForm):
         """Sanitize note content to prevent XSS"""
         return sanitize_input(self.cleaned_data.get('content'))
     
-class UserRegistrationForm:
-    class UserRegistrationForm(forms.ModelForm):
-        password = forms.CharField(
-            widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'})
-        )
-        password_confirm = forms.CharField(
-            widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'})
-        )
+class UserRegistrationForm(forms.ModelForm):
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'})
+    )
+    password_confirm = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'})
+    )
 
-        class Meta:
-            model = User
-            fields = ['username', 'email', 'first_name', 'last_name']
-            widgets = {
-                'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}),
-                'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'}),
-                'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First Name'}),
-                'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last Name'}),
-            }
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First Name'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last Name'}),
+        }
 
-        def clean_username(self):
-            username = sanitize_input(self.cleaned_data.get('username'))
-            if not username:
-                raise forms.ValidationError('Username is required.')
-            validate_username_format(username)
-            if User.objects.filter(username=username).exists():
-                raise forms.ValidationError('This username already exists. Please choose another.')
-            return username
+    def clean_username(self):
+        username = sanitize_input(self.cleaned_data.get('username'))
+        if not username:
+            raise forms.ValidationError('Username is required.')
+        validate_username_format(username)
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError('This username already exists. Please choose another.')
+        return username
 
-        def clean_email(self):
-            email = sanitize_input(self.cleaned_data.get('email'))
-            if not email:
-                raise forms.ValidationError('Email is required.')
-            email = email.lower()
-            if User.objects.filter(email=email).exists():
-                raise forms.ValidationError('This email is already registered.')
-            return email
+    def clean_email(self):
+        email = sanitize_input(self.cleaned_data.get('email'))
+        if not email:
+            raise forms.ValidationError('Email is required.')
+        email = email.lower()
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError('This email is already registered.')
+        return email
 
-        def clean_first_name(self):
-            first_name = sanitize_input(self.cleaned_data.get('first_name'))
-            if not first_name:
-                raise forms.ValidationError('First name is required.')
-            return first_name
+    def clean_first_name(self):
+        first_name = sanitize_input(self.cleaned_data.get('first_name'))
+        if not first_name:
+            raise forms.ValidationError('First name is required.')
+        return first_name
 
-        def clean_last_name(self):
-            last_name = sanitize_input(self.cleaned_data.get('last_name'))
-            if not last_name:
-                raise forms.ValidationError('Last name is required.')
-            return last_name
+    def clean_last_name(self):
+        last_name = sanitize_input(self.cleaned_data.get('last_name'))
+        if not last_name:
+            raise forms.ValidationError('Last name is required.')
+        return last_name
 
-        def clean_password(self):
-            password = self.cleaned_data.get('password')
-            return validate_password_strength(password)
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        return validate_password_strength(password)
 
-        def clean(self):
-            cleaned_data = super().clean()
-            if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
-                raise forms.ValidationError('Passwords do not match.')
-            return cleaned_data
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
+            raise forms.ValidationError('Passwords do not match.')
+        return cleaned_data
