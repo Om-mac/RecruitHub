@@ -1,3 +1,37 @@
 from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
+from .forms import UserProfileForm
 
-# Create your tests here.
+
+class FileAccessFailure:
+    """Simulate a storage-backed file whose .size raises an exception (e.g., missing S3 object)"""
+    def __init__(self, name):
+        self.name = name
+
+    @property
+    def size(self):
+        raise Exception('Simulated storage access failure')
+
+
+class FileValidatorTests(TestCase):
+    def test_clean_profile_photo_missing_stored_file_raises_validation_error(self):
+        user = User.objects.create_user(username='testuser', password='test')
+        profile = user.profile
+        form = UserProfileForm(instance=profile)
+        # Simulate that the cleaned_data contains a stored file that errors on size access
+        form.cleaned_data = {'profile_photo': FileAccessFailure('avatar.jpg')}
+        with self.assertRaises(ValidationError):
+            form.clean_profile_photo()
+
+    def test_clean_profile_photo_with_fresh_upload_passes(self):
+        user = User.objects.create_user(username='testuser2', password='test')
+        profile = user.profile
+        form = UserProfileForm(instance=profile)
+        jpeg_content = b'\xff\xd8\xff\x00dummyjpeg'
+        upload = SimpleUploadedFile('avatar.jpg', jpeg_content, content_type='image/jpeg')
+        form.cleaned_data = {'profile_photo': upload}
+        # Should not raise
+        result = form.clean_profile_photo()
+        self.assertIs(result, upload)

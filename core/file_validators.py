@@ -202,15 +202,23 @@ def validate_resume_file(file):
             params={'ext': ext},
         )
 
-    # Check file size
-    if file.size > MAX_RESUME_SIZE:
+    # Check file size (defensive: handle missing storage objects)
+    try:
+        file_size = file.size
+    except Exception as e:
+        raise ValidationError(
+            _('Stored resume is missing or inaccessible. Please re-upload the resume.'),
+            code='missing_file'
+        ) from e
+
+    if file_size > MAX_RESUME_SIZE:
         max_size_mb = MAX_RESUME_SIZE / (1024 * 1024)
         raise ValidationError(
             _('Resume file is too large. Maximum size: %(max_size)s MB. Your file: %(file_size)s MB'),
             code='file_too_large',
             params={
                 'max_size': int(max_size_mb),
-                'file_size': round(file.size / (1024 * 1024), 2),
+                'file_size': round(file_size / (1024 * 1024), 2),
             },
         )
     
@@ -253,7 +261,15 @@ def validate_profile_photo(file):
     # ─────────────────────────────────────────────
     # 3️⃣ SAFE file size check (NO S3 HEAD REQUEST)
     # ─────────────────────────────────────────────
-    file_size = file.size  # cached once – uses UploadedFile, not storage
+    try:
+        file_size = file.size  # cached once – uses UploadedFile, not storage
+    except Exception as e:
+        # Storage backend (e.g., S3) may raise on missing objects; surface a friendly error
+        raise ValidationError(
+            _('Stored profile photo is missing or inaccessible. Please re-upload the profile photo.'),
+            code='missing_file'
+        ) from e
+
     if file_size > MAX_PHOTO_SIZE:
         raise ValidationError(
             _("Profile photo is too large. Maximum size: %(max_size)s MB. Your file: %(file_size)s MB"),
@@ -298,15 +314,23 @@ def validate_document_file(file):
             params={'ext': ext},
         )
 
-    # Check file size
-    if file.size > MAX_DOCUMENT_SIZE:
+    # Check file size (defensive: handle missing storage objects)
+    try:
+        file_size = file.size
+    except Exception as e:
+        raise ValidationError(
+            _('Stored document is missing or inaccessible. Please re-upload the document.'),
+            code='missing_file'
+        ) from e
+
+    if file_size > MAX_DOCUMENT_SIZE:
         max_size_mb = MAX_DOCUMENT_SIZE / (1024 * 1024)
         raise ValidationError(
             _('Document is too large. Maximum size: %(max_size)s MB. Your file: %(file_size)s MB'),
             code='file_too_large',
             params={
                 'max_size': int(max_size_mb),
-                'file_size': round(file.size / (1024 * 1024), 2),
+                'file_size': round(file_size / (1024 * 1024), 2),
             },
         )
     

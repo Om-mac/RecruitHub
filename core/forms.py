@@ -193,16 +193,48 @@ class UserProfileForm(forms.ModelForm):
         # ✅ Only validate freshly uploaded files
         from django.core.files.uploadedfile import UploadedFile
         if not isinstance(file, UploadedFile):
+            # Existing (stored) file: ensure the storage metadata lookup does not raise
+            # an uncaught exception (e.g., S3 HEAD returning 404). Accessing `size`
+            # can trigger a remote HEAD request; handle failures gracefully.
+            try:
+                _ = file.size
+            except Exception:
+                # Log and show a friendly validation error prompting re-upload
+                import logging
+                logger = logging.getLogger('core')
+                logger.exception("Failed to access existing profile photo metadata")
+                raise forms.ValidationError(
+                    'Stored profile photo is missing or inaccessible. Please re-upload your profile photo.'
+                )
             return file
     
+        # Fresh upload — run validators
         validate_profile_photo(file)
         return file
         
     def clean_resume(self):
         """Validate resume file"""
         file = self.cleaned_data.get('resume')
-        if file:
+        if not file:
+            return file
+
+        from django.core.files.uploadedfile import UploadedFile
+        # Only validate freshly uploaded files; existing stored files may trigger
+        # storage metadata lookups (size) which could raise storage-specific errors
+        if isinstance(file, UploadedFile):
             validate_resume_file(file)
+            return file
+
+        # Existing stored file: ensure it's present and readable
+        try:
+            _ = file.size
+        except Exception:
+            import logging
+            logger = logging.getLogger('core')
+            logger.exception("Failed to access existing resume metadata")
+            raise forms.ValidationError(
+                'Stored resume is missing or inaccessible. Please re-upload your resume.'
+            )
         return file
     
     def clean_phone(self):
@@ -355,8 +387,24 @@ class DocumentForm(forms.ModelForm):
     def clean_file(self):
         """Validate document file"""
         file = self.cleaned_data.get('file')
-        if file:
+        if not file:
+            return file
+
+        from django.core.files.uploadedfile import UploadedFile
+        if isinstance(file, UploadedFile):
             validate_document_file(file)
+            return file
+
+        # Existing stored file: ensure it's present and readable
+        try:
+            _ = file.size
+        except Exception:
+            import logging
+            logger = logging.getLogger('core')
+            logger.exception("Failed to access existing document metadata")
+            raise forms.ValidationError(
+                'Stored document is missing or inaccessible. Please re-upload the document.'
+            )
         return file
     
     def clean_title(self):
