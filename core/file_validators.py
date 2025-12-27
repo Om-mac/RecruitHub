@@ -46,7 +46,7 @@ BLOCKED_EXTENSIONS = {
 
 # File size limits (in bytes)
 MAX_RESUME_SIZE = 5 * 1024 * 1024  # 5 MB
-MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 1 MB
+MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5 MB
 MAX_DOCUMENT_SIZE = 5 * 1024 * 1024  # 5 MB
 
 # Safe filename pattern - only alphanumeric, dash, underscore, dot

@@ -445,6 +445,7 @@ class NoteForm(forms.ModelForm):
     def clean_content(self):
         """Sanitize note content to prevent XSS"""
         return sanitize_input(self.cleaned_data.get('content'))
+    
 class UserRegistrationForm:
     class UserRegistrationForm(forms.ModelForm):
         password = forms.CharField(
