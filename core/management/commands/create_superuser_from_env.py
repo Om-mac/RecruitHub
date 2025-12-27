@@ -63,7 +63,7 @@ class Command(BaseCommand):
                 user.save(update_fields=['is_staff', 'is_superuser'])
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'✅ Ensured superuser privileges for: {username}'
+                        f'✅ Ensured superuser privileges'
                     )
                 )
         except User.DoesNotExist:
