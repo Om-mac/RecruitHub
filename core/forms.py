@@ -190,11 +190,11 @@ class UserProfileForm(forms.ModelForm):
         if not file:
             return file
     
-        # ✅ Existing S3 file (FieldFile) → skip validation
-        if not isinstance(file):
+        # ✅ Only validate freshly uploaded files
+        from django.core.files.uploadedfile import UploadedFile
+        if not isinstance(file, UploadedFile):
             return file
     
-        # ✅ Only validate freshly uploaded files
         validate_profile_photo(file)
         return file
         
