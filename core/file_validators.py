@@ -46,7 +46,7 @@ BLOCKED_EXTENSIONS = {
 
 # File size limits (in bytes)
 MAX_RESUME_SIZE = 5 * 1024 * 1024  # 5 MB
-MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 MAX_DOCUMENT_SIZE = 5 * 1024 * 1024  # 5 MB
 
 # Safe filename pattern - only alphanumeric, dash, underscore, dot
@@ -221,7 +221,7 @@ def validate_resume_file(file):
     validate_magic_bytes(file, ext)
 
 
-def validate_profile_photo(file):
+def validate_profile_photo(file: UploadedFile):
     """
     Validate profile photo:
     - Must be JPG or PNG
@@ -229,40 +229,50 @@ def validate_profile_photo(file):
     - Magic bytes validation
     - Filename safety check
     """
+
     if not file:
         return
 
-    # Sanitize and validate filename first
+    # ─────────────────────────────────────────────
+    # 1️⃣ Sanitize & validate filename
+    # ─────────────────────────────────────────────
     file.name = sanitize_filename(file.name)
     validate_filename_safety(file.name)
 
-    # Check file extension (whitelist)
-    ext = get_file_extension(file.name)
-    if ext not in ['jpg', 'jpeg', 'png']:
+    # ─────────────────────────────────────────────
+    # 2️⃣ Extension whitelist
+    # ─────────────────────────────────────────────
+    ext = get_file_extension(file.name).lower()
+    if ext not in ("jpg", "jpeg", "png"):
         raise ValidationError(
-            _('Profile photo must be JPG or PNG. Received: .%(ext)s'),
-            code='invalid_extension',
-            params={'ext': ext},
+            _("Profile photo must be JPG or PNG. Received: .%(ext)s"),
+            code="invalid_extension",
+            params={"ext": ext},
         )
 
-    # Check file size
-    if file.size > MAX_PHOTO_SIZE:
-        max_size_mb = MAX_PHOTO_SIZE / (1024 * 1024)
+    # ─────────────────────────────────────────────
+    # 3️⃣ SAFE file size check (NO S3 HEAD REQUEST)
+    # ─────────────────────────────────────────────
+    file_size = file.size  # cached once – uses UploadedFile, not storage
+    if file_size > MAX_PHOTO_SIZE:
         raise ValidationError(
-            _('Profile photo is too large. Maximum size: %(max_size)s MB. Your file: %(file_size)s MB'),
-            code='file_too_large',
+            _("Profile photo is too large. Maximum size: %(max_size)s MB. Your file: %(file_size)s MB"),
+            code="file_too_large",
             params={
-                'max_size': int(max_size_mb),
-                'file_size': round(file.size / (1024 * 1024), 2),
+                "max_size": MAX_PHOTO_SIZE // (1024 * 1024),
+                "file_size": round(file_size / (1024 * 1024), 2),
             },
         )
-    
-    # Validate Content-Type (defense in depth)
-    validate_content_type(file, ALLOWED_PHOTO_TYPES)
-    
-    # Validate magic bytes (security: prevent disguised malicious files)
-    validate_magic_bytes(file, ext)
 
+    # ─────────────────────────────────────────────
+    # 4️⃣ Content-Type validation (defense in depth)
+    # ─────────────────────────────────────────────
+    validate_content_type(file, ALLOWED_PHOTO_TYPES)
+
+    # ─────────────────────────────────────────────
+    # 5️⃣ Magic bytes validation (anti-spoofing)
+    # ─────────────────────────────────────────────
+    validate_magic_bytes(file, ext)
 
 def validate_document_file(file):
     """
