@@ -300,7 +300,7 @@
                         <small class="form-text text-muted d-block mt-1">Upload your resume (PDF recommended)</small>
                         {% if profile.resume %}
                             <div class="mt-2">
-                                <small>Current: <a href="#" onclick="fetch('/download/resume/').then(r=>r.json()).then(d=>window.open(d.url)); return false;">Download Resume</a></small>
+                                <small>Current: <a href="#" onclick="downloadResume(); return false;">Download Resume</a></small>
                             </div>
                         {% endif %}
                     </div>
@@ -318,6 +318,30 @@
             </a>
         </div>
     </form>
+    
+    <script>
+    function downloadResume() {
+        fetch('/download/resume/')
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    // Create a temporary link and click it
+                    const link = document.createElement('a');
+                    link.href = d.url;
+                    link.download = d.filename || 'resume.pdf';
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('Error: ' + (d.error || 'Could not download resume'));
+                }
+            })
+            .catch(e => {
+                alert('Error downloading resume: ' + e.message);
+            });
+    }
+    </script>
     
     <style>
         .profile-photo {
