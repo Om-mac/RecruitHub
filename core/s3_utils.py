@@ -193,33 +193,59 @@ def validate_s3_file_access(user, file_path):
     
     Args:
         user: Django User object
-        file_path: S3 object key (e.g., 'resumes/user123/resume.pdf')
+        file_path: S3 object key (e.g., 'resumes/user123/resume.pdf' or 'resumes/test-user1-resume.pdf')
     
     Returns:
         True if user can access file, False otherwise
     """
+    import logging
+    core_logger = logging.getLogger('core')
+    
     if not user.is_authenticated:
         return False
     
-    # File path should contain user ID for ownership verification
-    # Examples:
-    # - resumes/{user.id}/resume.pdf
-    # - profile_photos/{user.id}/photo.png
-    # - documents/{user.id}/doc.pdf
+    # File path can be in two formats:
+    # OLD: folder/{user.id}/filename (3+ parts)
+    # NEW: folder/firstname-lastname-filename (2 parts)
     
-    # Extract user ID from path
+    core_logger.info(f'validate_s3_file_access: user={user.id} ({user.first_name} {user.last_name}), path={file_path}')
+    
+    # Extract parts from path
     path_parts = file_path.split('/')
+    core_logger.info(f'Path parts: {path_parts}, count: {len(path_parts)}')
     
-    # Validate path structure (at least 3 parts: folder/user_id/filename)
-    if len(path_parts) < 3:
-        return False
+    # Try old format first: folder/user_id/filename (3+ parts)
+    if len(path_parts) >= 3:
+        try:
+            stored_user_id = int(path_parts[1])
+            is_match = user.id == stored_user_id
+            core_logger.info(f'OLD format: stored_user_id={stored_user_id}, match={is_match}')
+            return is_match
+        except (ValueError, IndexError):
+            core_logger.info(f'OLD format parse failed')
+            pass  # Not old format, try new format
     
-    # Check if user owns the file
-    try:
-        stored_user_id = int(path_parts[1])
-        return user.id == stored_user_id
-    except (ValueError, IndexError):
-        return False
+    # Try new format: folder/firstname-lastname-filename (2 parts)
+    if len(path_parts) >= 2:
+        filename = path_parts[-1].lower()
+        first_name = user.first_name.replace(" ", "-").lower() if user.first_name else ""
+        last_name = user.last_name.replace(" ", "-").lower() if user.last_name else str(user.id)
+        
+        core_logger.info(f'NEW format: filename={filename}, first={first_name}, last={last_name}')
+        
+        # Check if filename contains user's name
+        if first_name and last_name:
+            match = first_name in filename and last_name in filename
+            core_logger.info(f'NEW format name match: {match}')
+            return match
+        
+        # Fallback: check if user_id is in filename
+        if str(user.id) in filename:
+            core_logger.info(f'NEW format ID match: {user.id} in filename')
+            return True
+    
+    core_logger.warning(f'validate_s3_file_access DENIED for user {user.id}')
+    return False
 
 
 def get_download_filename(file_path):

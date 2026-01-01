@@ -105,11 +105,15 @@ def download_resume(request):
         logger.info(f'Resume path from DB: {resume_path}')
         
         # Verify user owns this file
+        logger.info(f'Validating access for user {request.user.id if not user_id else target_user.id} to resume: {resume_path}')
         if not validate_s3_file_access(request.user if not user_id else target_user, resume_path):
+            logger.warning(f'Resume access validation FAILED for user {request.user.id if not user_id else target_user.id}')
             return secure_json_response({
                 'error': 'Access denied',
                 'status': 403
             }, status=403)
+        
+        logger.info(f'Resume access validation PASSED')
         
         # Generate presigned URL (5 min validity)
         logger.info(f'Generating presigned URL for path: {resume_path}')
