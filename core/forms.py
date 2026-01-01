@@ -242,14 +242,16 @@ class UserProfileForm(forms.ModelForm):
     def clean_profile_photo(self):
         """Validate profile photo file"""
         file = self.cleaned_data.get('profile_photo')
-        if file:
+        # Only validate newly uploaded files, not existing stored files
+        if file and hasattr(file, 'read'):  # UploadedFile has read method
             validate_profile_photo(file)
         return file
     
     def clean_resume(self):
         """Validate resume file"""
         file = self.cleaned_data.get('resume')
-        if file:
+        # Only validate newly uploaded files, not existing stored files
+        if file and hasattr(file, 'read'):  # UploadedFile has read method
             validate_resume_file(file)
         return file
     
