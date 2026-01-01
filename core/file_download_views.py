@@ -42,16 +42,60 @@ def download_resume(request):
     """
     Generate presigned URL for user's resume
     
+    Parameters:
+    - user_id (optional): Get another user's resume (HR/admin viewing students)
+    
     Security:
     - Requires authentication
-    - Verifies user owns the resume
+    - If user_id provided: Checks if current user is approved HR or superuser
+    - If no user_id: Returns current user's resume
+    - Verifies ownership of the resume
     - Returns presigned URL (not direct S3 URL)
     - URL expires in 5 minutes
     """
     try:
-        profile = request.user.profile
+        # Get user_id from query parameters (optional)
+        user_id = request.GET.get('user_id')
+        
+        if user_id:
+            # Security: Validate user_id is integer
+            try:
+                user_id = int(user_id)
+            except (ValueError, TypeError):
+                return secure_json_response({
+                    'error': 'Invalid user ID',
+                    'status': 400
+                }, status=400)
+            
+            # HR/Admin viewing a student's resume
+            # Security: Check if current user is APPROVED HR or superuser
+            is_approved_hr = False
+            if hasattr(request.user, 'hr_profile'):
+                is_approved_hr = request.user.hr_profile.is_approved
+            
+            if not (request.user.is_superuser or is_approved_hr):
+                return secure_json_response({
+                    'error': 'Access denied - HR approval required',
+                    'status': 403
+                }, status=403)
+            
+            # Get the requested user's profile
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            try:
+                target_user = User.objects.get(id=user_id)
+                profile = target_user.profile
+            except User.DoesNotExist:
+                return secure_json_response({
+                    'error': 'User not found',
+                    'status': 404
+                }, status=404)
+        else:
+            # Get current user's resume
+            profile = request.user.profile
+        
         if not profile.resume:
-            return JsonResponse({
+            return secure_json_response({
                 'error': 'No resume found',
                 'status': 404
             }, status=404)
@@ -60,8 +104,8 @@ def download_resume(request):
         resume_path = profile.resume.name
         
         # Verify user owns this file
-        if not validate_s3_file_access(request.user, resume_path):
-            return JsonResponse({
+        if not validate_s3_file_access(request.user if not user_id else target_user, resume_path):
+            return secure_json_response({
                 'error': 'Access denied',
                 'status': 403
             }, status=403)
