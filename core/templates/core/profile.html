@@ -300,7 +300,7 @@
                         <small class="form-text text-muted d-block mt-1">Upload your resume (PDF recommended)</small>
                         {% if profile.resume %}
                             <div class="mt-2">
-                                <small>Current: <a href="{{ profile.resume.url }}" target="_blank">Download Resume</a></small>
+                                <small>Current: <a href="#" onclick="fetch('/download/resume/').then(r=>r.json()).then(d=>window.open(d.url)); return false;">Download Resume</a></small>
                             </div>
                         {% endif %}
                     </div>
