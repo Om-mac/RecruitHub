@@ -216,6 +216,7 @@ class HRProfileAdmin(admin.ModelAdmin):
             self.message_user(request, "❌ Only superusers can approve HR profiles.", level='error')
             return
         from django.utils import timezone
+        from .views import send_approval_confirmation_email
         updated = 0
         for hr_profile in queryset:
             if not hr_profile.is_approved:
@@ -223,6 +224,8 @@ class HRProfileAdmin(admin.ModelAdmin):
                 hr_profile.approved_by = request.user
                 hr_profile.approved_at = timezone.now()
                 hr_profile.save()
+                # Send approval confirmation email to HR
+                send_approval_confirmation_email(hr_profile.user)
                 updated += 1
         self.message_user(request, f'✅ {updated} HR profile(s) approved successfully!')
     approve_hr_profile.short_description = '✓ Approve selected HR profiles'
