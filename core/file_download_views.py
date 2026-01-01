@@ -102,6 +102,7 @@ def download_resume(request):
         
         # Get resume file path
         resume_path = profile.resume.name
+        logger.info(f'Resume path from DB: {resume_path}')
         
         # Verify user owns this file
         if not validate_s3_file_access(request.user if not user_id else target_user, resume_path):
@@ -111,7 +112,9 @@ def download_resume(request):
             }, status=403)
         
         # Generate presigned URL (5 min validity)
+        logger.info(f'Generating presigned URL for path: {resume_path}')
         presigned_url = generate_presigned_url(resume_path, expiration=300)
+        logger.info(f'Presigned URL generated: {bool(presigned_url)}')
         
         if not presigned_url:
             # Security: Don't log file path (contains user ID)

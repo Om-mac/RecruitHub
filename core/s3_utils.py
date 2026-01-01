@@ -92,12 +92,19 @@ def generate_presigned_url(file_path, expiration=300):
         - Bucket and credentials never logged
         - Path traversal prevention
     """
+    import logging
+    core_logger = logging.getLogger('core')
+    
     if not settings.USE_S3:
         # Local development: return local file URL
         return f'/media/{file_path}'
     
+    core_logger.info(f'generate_presigned_url called with: {file_path}')
+    
     # Security: Sanitize file path to prevent traversal attacks
     file_path = sanitize_s3_path(file_path)
+    core_logger.info(f'After sanitization: {file_path}')
+    
     if not file_path:
         logger.warning('Invalid file path rejected')
         return None
@@ -109,11 +116,16 @@ def generate_presigned_url(file_path, expiration=300):
     try:
         s3_client = get_s3_client()
         if not s3_client:
+            core_logger.error('S3 client is None')
             # Fallback to local storage if S3 client unavailable
             return f'/media/{file_path}'
         
+        core_logger.info(f'S3 client initialized')
+        
         # Add media/ prefix if not already present (django-storages stores files under media/)
         s3_key = file_path if file_path.startswith('media/') else f'media/{file_path}'
+        core_logger.info(f'Final S3 key: {s3_key}')
+        core_logger.info(f'S3 bucket: {settings.AWS_STORAGE_BUCKET_NAME}')
         
         # Try to generate presigned URL
         try:
@@ -126,6 +138,7 @@ def generate_presigned_url(file_path, expiration=300):
                 ExpiresIn=expiration,
             )
             
+            core_logger.info(f'Presigned URL generated successfully')
             # Security: Don't log the URL or bucket name
             logger.debug(f'Presigned URL generated with {expiration}s expiration')
             
