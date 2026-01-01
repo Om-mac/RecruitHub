@@ -25,7 +25,7 @@ def sanitize_s3_path(file_path):
     Sanitize S3 file path to prevent path traversal attacks
     
     Security:
-    - Removes path traversal sequences (../, ..\ )
+    - Removes path traversal sequences (.., //, backslash)
     - Removes null bytes
     - Normalizes path separators
     - Ensures path stays within allowed directories
