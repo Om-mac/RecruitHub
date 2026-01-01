@@ -188,6 +188,13 @@ def validate_resume_file(file):
     """
     if not file:
         return
+    
+    # Skip validation for existing S3 files (FieldFile objects)
+    # Only validate newly uploaded files
+    from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+    if not isinstance(file, (InMemoryUploadedFile, TemporaryUploadedFile)):
+        # This is an existing file reference, not a new upload - skip validation
+        return
 
     # Sanitize and validate filename first
     file.name = sanitize_filename(file.name)
@@ -230,6 +237,13 @@ def validate_profile_photo(file):
     - Filename safety check
     """
     if not file:
+        return
+    
+    # Skip validation for existing S3 files (FieldFile objects)
+    # Only validate newly uploaded files
+    from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+    if not isinstance(file, (InMemoryUploadedFile, TemporaryUploadedFile)):
+        # This is an existing file reference, not a new upload - skip validation
         return
 
     # Sanitize and validate filename first
