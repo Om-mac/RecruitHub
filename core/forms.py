@@ -241,17 +241,19 @@ class UserProfileForm(forms.ModelForm):
     
     def clean_profile_photo(self):
         """Validate profile photo file"""
+        from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
         file = self.cleaned_data.get('profile_photo')
         # Only validate newly uploaded files, not existing stored files
-        if file and hasattr(file, 'read'):  # UploadedFile has read method
+        if file and isinstance(file, (InMemoryUploadedFile, TemporaryUploadedFile)):
             validate_profile_photo(file)
         return file
     
     def clean_resume(self):
         """Validate resume file"""
+        from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
         file = self.cleaned_data.get('resume')
         # Only validate newly uploaded files, not existing stored files
-        if file and hasattr(file, 'read'):  # UploadedFile has read method
+        if file and isinstance(file, (InMemoryUploadedFile, TemporaryUploadedFile)):
             validate_resume_file(file)
         return file
     
