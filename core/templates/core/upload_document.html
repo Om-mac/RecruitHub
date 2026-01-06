@@ -9,6 +9,46 @@
                 <i class="fas fa-file-upload"></i> Upload Document
             </h2>
             
+            <!-- Fallback form for when S3 is not available -->
+            <form id="fallbackForm" method="post" enctype="multipart/form-data" class="card p-4" style="display: none;">
+                {% csrf_token %}
+                
+                <div class="alert alert-warning">
+                    <small>Direct S3 upload unavailable. Using standard upload instead.</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="fallbackTitle" class="form-label">Document Title</label>
+                    <input 
+                        type="text" 
+                        id="fallbackTitle" 
+                        name="title" 
+                        class="form-control" 
+                        placeholder="Document Title"
+                        required
+                    >
+                </div>
+                
+                <div class="mb-3">
+                    <label for="fallbackFile" class="form-label">Select File</label>
+                    <input 
+                        type="file" 
+                        id="fallbackFile" 
+                        name="file" 
+                        class="form-control" 
+                        accept="application/pdf,image/jpeg,image/png"
+                        required
+                    >
+                    <small class="form-text text-muted">PDF, JPG, or PNG - max 5 MB</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 mb-2">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload
+                </button>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary w-100">Cancel</a>
+            </form>
+
+            <!-- Main presigned URL upload form -->
             <form id="uploadForm" class="card p-4">
                 {% csrf_token %}
                 
@@ -60,6 +100,20 @@
     </div>
 
     <script>
+        // Function to switch to fallback form (regular upload)
+        function switchToFallback() {
+            document.getElementById('uploadForm').style.display = 'none';
+            document.getElementById('fallbackForm').style.display = 'block';
+            // Copy values over
+            const fallbackTitle = document.getElementById('fallbackTitle');
+            const fallbackFile = document.getElementById('fallbackFile');
+            const title = document.getElementById('titleInput').value;
+            if (title) fallbackTitle.value = title;
+            if (document.getElementById('fileInput').files.length > 0) {
+                fallbackFile.files = document.getElementById('fileInput').files;
+            }
+        }
+
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -111,15 +165,17 @@
                 if (!presignedResponse.ok) {
                     const error = await presignedResponse.json();
                     document.getElementById('fileError').textContent = error.error || 'Failed to get upload URL.';
+                    console.error('Failed to get presigned POST:', error);
                     return;
                 }
                 
                 const presignedData = await presignedResponse.json();
+                console.log('Presigned POST data received');
                 
                 // Step 2: Upload file directly to S3 using presigned POST
                 const s3FormData = new FormData();
                 
-                // Add fields from presigned policy
+                // Add fields from presigned policy (order matters!)
                 for (const [key, value] of Object.entries(presignedData.fields)) {
                     s3FormData.append(key, value);
                 }
@@ -131,14 +187,22 @@
                 document.getElementById('uploadProgress').style.display = 'block';
                 document.getElementById('submitBtn').disabled = true;
                 
+                console.log('Starting S3 upload to:', presignedData.url);
                 const uploadResponse = await fetch(presignedData.url, {
                     method: 'POST',
                     body: s3FormData,
                 });
                 
-                if (!uploadResponse.ok) {
-                    throw new Error(`S3 upload failed: ${uploadResponse.status}`);
+                console.log('S3 upload response status:', uploadResponse.status);
+                
+                // S3 returns 204 No Content or 303 redirect on success
+                if (uploadResponse.status !== 204 && uploadResponse.status !== 303) {
+                    const responseText = await uploadResponse.text();
+                    console.error('S3 Upload failed:', uploadResponse.status, responseText);
+                    throw new Error(`S3 upload failed with status ${uploadResponse.status}`);
                 }
+                
+                console.log('S3 upload successful, creating database record');
                 
                 // Step 3: Create document record in database
                 const createResponse = await fetch('{% url "create_document_record" %}', {
@@ -155,6 +219,7 @@
                 
                 if (!createResponse.ok) {
                     const error = await createResponse.json();
+                    console.error('Failed to create document record:', error);
                     document.getElementById('fileError').textContent = error.error || 'Failed to create document record.';
                     return;
                 }
@@ -170,7 +235,7 @@
                 
             } catch (error) {
                 console.error('Upload error:', error);
-                document.getElementById('fileError').textContent = error.message || 'An error occurred during upload.';
+                document.getElementById('fileError').textContent = error.message || 'An error occurred during upload. Please try again.';
                 document.getElementById('uploadProgress').style.display = 'none';
                 document.getElementById('submitBtn').disabled = false;
             }

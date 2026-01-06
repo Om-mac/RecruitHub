@@ -323,6 +323,7 @@ class XSSProtectionMiddleware:
                 "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com",
                 "img-src 'self' data: https: blob:",
                 "font-src 'self' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com fonts.gstatic.com",
+                "connect-src 'self' https://*.s3.amazonaws.com https://*.s3-*.amazonaws.com",  # Allow S3 presigned URL uploads
                 "frame-ancestors 'none'",  # Clickjacking protection (stronger than X-Frame-Options)
                 "form-action 'self'",  # Prevent form submission to external sites
                 "base-uri 'self'",  # Prevent base tag injection

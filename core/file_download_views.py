@@ -288,6 +288,10 @@ def download_document(request, doc_id):
         # Get document file path
         file_path = doc.file.name
         
+        # Ensure file_path has media/ prefix for presigned URL generation
+        if not file_path.startswith('media/'):
+            file_path = f'media/{file_path}'
+        
         # Generate presigned URL (5 min validity)
         presigned_url = generate_presigned_url(file_path, expiration=300)
         

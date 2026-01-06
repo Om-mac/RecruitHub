@@ -234,9 +234,9 @@ def get_s3_presigned_post(request):
         if not filename:
             return JsonResponse({'error': 'Filename required'}, status=400)
         
-        # Generate unique filename: documents/{user_id}/{uuid}-{filename}
+        # Generate unique filename: media/documents/{user_id}/{uuid}-{filename}
         safe_filename = f"{uuid.uuid4().hex[:8]}-{filename}"
-        file_path = f"documents/{request.user.id}/{safe_filename}"
+        file_path = f"media/documents/{request.user.id}/{safe_filename}"
         
         # Generate presigned POST
         presigned_data = generate_presigned_post(file_path, expiration=3600)
@@ -276,14 +276,19 @@ def create_document_record(request):
             return JsonResponse({'error': 'Title and file_path required'}, status=400)
         
         # Validate file path belongs to user
-        if not file_path.startswith(f"documents/{request.user.id}/"):
+        if not file_path.startswith(f"media/documents/{request.user.id}/"):
             return JsonResponse({'error': 'Invalid file path'}, status=403)
+        
+        # Remove 'media/' prefix from storage path (Django stores relative path)
+        # S3 path: media/documents/123/file.pdf
+        # Store as: documents/123/file.pdf
+        storage_path = file_path.replace('media/', '', 1) if file_path.startswith('media/') else file_path
         
         # Create document record
         document = Document(
             user=request.user,
             title=title,
-            file=file_path,  # Store S3 path
+            file=storage_path,  # Store without media/ prefix
         )
         document.save()
         
