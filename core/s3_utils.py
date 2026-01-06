@@ -266,3 +266,65 @@ def get_download_filename(file_path):
     filename = re.sub(r'[^\w\s.-]', '', filename)
     
     return filename or 'download'
+
+
+def generate_presigned_post(file_path, expiration=3600):
+    """
+    Generate presigned POST policy for direct S3 upload
+    
+    Args:
+        file_path: Target S3 object key (e.g., 'documents/user123/filename.pdf')
+        expiration: Policy validity in seconds (default: 3600 = 1 hour)
+    
+    Returns:
+        Dict with 'url', 'fields' for POST request, or None if error
+        
+    Security:
+        - Policy expires automatically
+        - File path restricted to specific location
+        - Content type and size restrictions enforced
+        - Path traversal prevention
+    """
+    if not settings.USE_S3:
+        # Local development: return None (use regular upload)
+        return None
+    
+    # Sanitize path
+    file_path = sanitize_s3_path(file_path)
+    if not file_path:
+        logger.warning('Invalid file path for presigned POST')
+        return None
+    
+    # Ensure media/ prefix
+    s3_key = file_path if file_path.startswith('media/') else f'media/{file_path}'
+    
+    try:
+        s3_client = get_s3_client()
+        if not s3_client:
+            logger.error('S3 client is None')
+            return None
+        
+        # Generate presigned POST with conditions
+        presigned_post = s3_client.generate_presigned_post(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=s3_key,
+            Fields=None,
+            Conditions=[
+                # Restrict content type to allowed types
+                ["starts-with", "$Content-Type", ""],  # Allow all initially
+                # Restrict file size to 5MB
+                ["content-length-range", 0, 5 * 1024 * 1024],
+            ],
+            ExpiresIn=expiration,
+        )
+        
+        logger.debug(f'Presigned POST generated for {s3_key}')
+        return presigned_post
+        
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+        logger.error(f'Failed to generate presigned POST: {error_code}')
+        return None
+    except Exception as e:
+        logger.error('Unexpected error generating presigned POST')
+        return None

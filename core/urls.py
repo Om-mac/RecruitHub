@@ -14,6 +14,8 @@ urlpatterns = [
     
     path('profile/', views.profile, name='profile'),
     path('upload/', views.upload_document, name='upload_document'),
+    path('api/s3-presigned-post/', views.get_s3_presigned_post, name='get_s3_presigned_post'),
+    path('api/create-document/', views.create_document_record, name='create_document_record'),
     path('add_note/', views.add_note, name='add_note'),
     path('note/<int:note_id>/', views.view_note, name='view_note'),
     path('note/<int:note_id>/edit/', views.edit_note, name='edit_note'),

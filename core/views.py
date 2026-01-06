@@ -10,6 +10,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
 import secrets
 import string
 import threading
@@ -17,6 +19,7 @@ import logging
 from .models import Document, Note, UserProfile, HRProfile, EmailOTP, IPRateLimit
 from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm, OTPForm, EmailOTPForm
 from .utils import get_client_ip
+from .s3_utils import generate_presigned_post
 
 User = get_user_model()
 logger = logging.getLogger('core')
@@ -208,6 +211,92 @@ def upload_document(request):
     else:
         form = DocumentForm()
     return render(request, 'core/upload_document.html', {'form': form})
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def get_s3_presigned_post(request):
+    """
+    AJAX endpoint to get S3 presigned POST policy for direct upload
+    
+    Returns JSON with:
+    - url: S3 POST endpoint
+    - fields: Form fields for POST request
+    - error: Error message if failed
+    """
+    try:
+        import json
+        import uuid
+        from django.core.files.storage import default_storage
+        
+        # Get filename from request
+        filename = request.POST.get('filename', '').strip()
+        if not filename:
+            return JsonResponse({'error': 'Filename required'}, status=400)
+        
+        # Generate unique filename: documents/{user_id}/{uuid}-{filename}
+        safe_filename = f"{uuid.uuid4().hex[:8]}-{filename}"
+        file_path = f"documents/{request.user.id}/{safe_filename}"
+        
+        # Generate presigned POST
+        presigned_data = generate_presigned_post(file_path, expiration=3600)
+        
+        if not presigned_data:
+            return JsonResponse({'error': 'Failed to generate upload URL'}, status=500)
+        
+        return JsonResponse({
+            'url': presigned_data['url'],
+            'fields': presigned_data['fields'],
+            'file_path': file_path,
+        })
+        
+    except Exception as e:
+        logger.error(f'Error generating presigned POST: {str(e)}')
+        return JsonResponse({'error': 'Server error'}, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def create_document_record(request):
+    """
+    Create document record in DB after S3 presigned upload completes
+    
+    Expects JSON:
+    - title: Document title
+    - file_path: S3 file path from presigned POST response
+    """
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        title = data.get('title', '').strip()
+        file_path = data.get('file_path', '').strip()
+        
+        if not title or not file_path:
+            return JsonResponse({'error': 'Title and file_path required'}, status=400)
+        
+        # Validate file path belongs to user
+        if not file_path.startswith(f"documents/{request.user.id}/"):
+            return JsonResponse({'error': 'Invalid file path'}, status=403)
+        
+        # Create document record
+        document = Document(
+            user=request.user,
+            title=title,
+            file=file_path,  # Store S3 path
+        )
+        document.save()
+        
+        return JsonResponse({
+            'success': True,
+            'document_id': document.id,
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f'Error creating document record: {str(e)}')
+        return JsonResponse({'error': 'Server error'}, status=500)
 
 @login_required(login_url='login')
 def add_note(request):
