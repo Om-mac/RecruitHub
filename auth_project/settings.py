@@ -244,9 +244,9 @@ SECURE_CONTENT_SECURITY_POLICY = {
     "default-src": ("'self'",),
     "script-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"),
     "style-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"),
-    "img-src": ("'self'", "data:", "*.s3.amazonaws.com", "*.s3.*.amazonaws.com"),
+    "img-src": ("'self'", "data:", "https://recruithub-amzn-bucket.s3.amazonaws.com", "https://*.s3.amazonaws.com"),
     "font-src": ("'self'", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"),
-    "connect-src": ("'self'", "*.s3.amazonaws.com", "*.s3.*.amazonaws.com"),
+    "connect-src": ("'self'", "https://recruithub-amzn-bucket.s3.amazonaws.com", "https://*.s3.amazonaws.com"),
 }
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = 'Lax'  # Changed from Strict to allow form submissions
