@@ -303,6 +303,55 @@ def create_document_record(request):
         logger.error(f'Error creating document record: {str(e)}')
         return JsonResponse({'error': 'Server error'}, status=500)
 
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def delete_document(request, doc_id):
+    """
+    Delete a document owned by the current user
+    
+    Security:
+    - Requires authentication
+    - Validates user owns the document (IDOR prevention)
+    - Deletes file from S3/storage
+    - Deletes database record
+    """
+    try:
+        # Validate doc_id is integer
+        try:
+            doc_id = int(doc_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid document ID'}, status=400)
+        
+        # Get document and verify ownership (IDOR prevention)
+        doc = get_object_or_404(Document, id=doc_id, user=request.user)
+        
+        # Delete file from S3/storage if it exists
+        if doc.file:
+            try:
+                doc.file.delete(save=False)  # Don't save yet
+                logger.info(f'Document file deleted from storage: doc_id={doc_id}')
+            except Exception as e:
+                logger.warning(f'Failed to delete document file: {str(e)}')
+                # Continue with DB deletion even if file deletion fails
+        
+        # Delete database record
+        doc.delete()
+        
+        logger.info(f'Document deleted by user {request.user.id}: doc_id={doc_id}')
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Document deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f'Error deleting document: {str(e)}')
+        return JsonResponse({
+            'error': 'Failed to delete document',
+            'status': 500
+        }, status=500)
+
 @login_required(login_url='login')
 def add_note(request):
     if request.method == 'POST':

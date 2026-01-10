@@ -21,6 +21,9 @@ urlpatterns = [
     path('note/<int:note_id>/edit/', views.edit_note, name='edit_note'),
     path('note/<int:note_id>/delete/', views.delete_note, name='delete_note'),
     
+    # Document management
+    path('api/delete-document/<int:doc_id>/', views.delete_document, name='delete_document'),
+    
     # Secure file download endpoints (presigned URLs)
     path('download/resume/', download_resume, name='download_resume'),
     path('download/profile-photo/', download_profile_photo, name='download_profile_photo'),
