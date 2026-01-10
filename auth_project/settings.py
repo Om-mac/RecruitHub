@@ -246,6 +246,7 @@ SECURE_CONTENT_SECURITY_POLICY = {
     "style-src": ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"),
     "img-src": ("'self'", "data:", "*.s3.amazonaws.com", "*.s3.*.amazonaws.com"),
     "font-src": ("'self'", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"),
+    "connect-src": ("'self'", "*.s3.amazonaws.com", "*.s3.*.amazonaws.com"),
 }
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = 'Lax'  # Changed from Strict to allow form submissions
