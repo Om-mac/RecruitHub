@@ -310,10 +310,7 @@ def generate_presigned_post(file_path, expiration=3600):
             Key=s3_key,
             Fields=None,
             Conditions=[
-                # Allow common file types: PDF and images
-                ["starts-with", "$Content-Type", "application/pdf"],
-                ["starts-with", "$Content-Type", "image/"],
-                # Restrict file size to 5MB
+                # Restrict file size to 5MB (only size restriction, no content-type)
                 ["content-length-range", 0, 5 * 1024 * 1024],
             ],
             ExpiresIn=expiration,
