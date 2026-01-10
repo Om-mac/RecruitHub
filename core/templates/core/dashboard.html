@@ -110,9 +110,9 @@
                                         </h6>
                                         <small class="text-muted">{{ doc.uploaded_at|date:"d M Y, H:i" }}</small>
                                     </div>
-                                    <a href="{{ doc.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                    <button onclick="downloadDocument({{ doc.id }})" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-download"></i> Download
-                                    </a>
+                                    </button>
                                 </div>
                             {% endfor %}
                         </div>
@@ -365,5 +365,28 @@
         </div>
     </div>
     {% endif %}
+
+<script>
+    function downloadDocument(docId) {
+        fetch('/download/document/' + docId + '/')
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    const link = document.createElement('a');
+                    link.href = d.url;
+                    link.download = d.filename || 'document.pdf';
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('Error: ' + (d.error || 'Could not download document'));
+                }
+            })
+            .catch(e => {
+                alert('Error downloading document: ' + e.message);
+            });
+    }
+</script>
 {% endblock %}
 

@@ -299,9 +299,13 @@ class DocumentAdmin(admin.ModelAdmin):
     
     def file_preview(self, obj):
         if obj.file:
+            from core.s3_utils import generate_presigned_url
+            # Generate presigned URL for secure download
+            presigned_url = generate_presigned_url(obj.file.name, expiration=300)
+            url = presigned_url if presigned_url else obj.file.url
             return format_html(
                 '<a href="{}" target="_blank" style="padding: 8px 16px; background: #667eea; color: white; border-radius: 5px; text-decoration: none; font-weight: bold;">📥 Download</a>',
-                obj.file.url
+                url
             )
         return "-"
     file_preview.short_description = 'Download'
