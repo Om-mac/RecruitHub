@@ -224,9 +224,9 @@ RATE_LIMIT_OTP_WINDOW=600  # 10 minutes
 
 From `.env`:
 ```
-RESEND_API_KEY="tarak mehta ka ooltah chashma"
-DEFAULT_FROM_EMAIL=noreply@fuck.com
-HR_APPROVAL_EMAIL=admin@fuck.local
+RESEND_API_KEY="tarak mehta ka ultah chashma"
+DEFAULT_FROM_EMAIL=noreply@simple.com
+HR_APPROVAL_EMAIL=admin@simple.local
 ```
 
 **Email Backend**:
