@@ -241,6 +241,8 @@ class SecurityHeadersMiddleware:
     
     def __init__(self, get_response):
         self.get_response = get_response
+        from django.conf import settings
+        self.debug = settings.DEBUG
 
     def __call__(self, request):
         response = self.get_response(request)
@@ -259,8 +261,8 @@ class SecurityHeadersMiddleware:
                     response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
                 if 'Permissions-Policy' not in response:
                     response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
-                # HSTS header with preload directive (required for hstspreload.org)
-                if 'Strict-Transport-Security' not in response:
+                # HSTS header - only in production (not DEBUG mode)
+                if not self.debug and 'Strict-Transport-Security' not in response:
                     response['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
             except (AttributeError, TypeError) as e:
                 logger.debug(f"Could not set security headers: {e}")
@@ -311,6 +313,8 @@ class XSSProtectionMiddleware:
     
     def __init__(self, get_response):
         self.get_response = get_response
+        from django.conf import settings
+        self.debug = settings.DEBUG
     
     def __call__(self, request):
         response = self.get_response(request)
@@ -328,8 +332,11 @@ class XSSProtectionMiddleware:
                 "form-action 'self'",  # Prevent form submission to external sites
                 "base-uri 'self'",  # Prevent base tag injection
                 "object-src 'none'",  # Block Flash/plugins
-                "upgrade-insecure-requests",  # Force HTTPS for all resources
             ]
+            # Only enforce HTTPS in production (not in DEBUG mode)
+            if not self.debug:
+                csp_directives.append("upgrade-insecure-requests")  # Force HTTPS for all resources
+            
             response['Content-Security-Policy'] = "; ".join(csp_directives)
         return response
 

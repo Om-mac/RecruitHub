@@ -211,27 +211,48 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 USE_S3 = os.environ.get('USE_S3', 'False').lower() == 'true'
 
 if USE_S3:
-    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '')
-    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
-    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '')
-    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
-    # Include region in the custom domain for correct S3 URLs
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '').strip()
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '').strip()
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '').strip()
+    AWS_S3_REGION_NAME = os.environ.get('AWS_REGION', 'us-east-1').strip()  # Use AWS_REGION from env
+    
+    # ===== Boto3 Configuration for SigV4 =====
+    # For ap-south-1 region, must use SigV4 signature algorithm
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_ADDRESSING_STYLE = 'path'  # Use path-style URLs for regional endpoints
+    
+    # Custom domain for MEDIA_URL
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
-    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    
+    # S3 Object parameters
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    
     # Security: No direct public access - use presigned URLs only
     AWS_DEFAULT_ACL = None  # No default ACL, requires presigned URL for access
     AWS_QUERYSTRING_AUTH = True  # Require query string authentication for all URLs
-    AWS_S3_ADDRESSING_STYLE = 'virtual'
-    # Static files stay local with WhiteNoise
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    
+    # Media storage
+    MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/media/'
     MEDIA_LOCATION = 'media'
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    
+    # ===== boto3 Settings =====
+    import botocore.config
+    AWS_S3_CONFIG = botocore.config.Config(
+        region_name=AWS_S3_REGION_NAME,
+        signature_version='s3v4',
+        retries={'max_attempts': 3, 'mode': 'standard'}
+    )
 else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security settings for production
-SECURE_SSL_REDIRECT = not DEBUG
+# IMPORTANT: Disabled for local development to allow HTTP access
+# When accessing over HTTPS, set SECURE_SSL_REDIRECT = True in production only
+SECURE_SSL_REDIRECT = False  # Development: Allow HTTP access
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://vakverse.com,https://*.vakverse.com').split(',')
@@ -355,4 +376,15 @@ LOGGING = {
         },
     },
 }
+
+# ===== DynamoDB Configuration =====
+USE_DYNAMODB = os.environ.get('USE_DYNAMODB', 'False').lower() == 'true'
+
+if USE_DYNAMODB:
+    DYNAMODB_CONFIG = {
+        'region': os.environ.get('AWS_REGION', 'us-east-1'),
+        'table_prefix': os.environ.get('DYNAMODB_TABLE_PREFIX', 'recruithub-'),
+        'aws_access_key_id': os.environ.get('AWS_ACCESS_KEY_ID', ''),
+        'aws_secret_access_key': os.environ.get('AWS_SECRET_ACCESS_KEY', ''),
+    }
 

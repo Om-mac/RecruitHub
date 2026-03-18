@@ -63,11 +63,25 @@ def get_s3_client():
         return None
     
     try:
+        import botocore.config
+        
+        # Configure boto3 for ap-south-1 region with SigV4
+        config = botocore.config.Config(
+            region_name=settings.AWS_S3_REGION_NAME,
+            signature_version='s3v4',
+            retries={'max_attempts': 3, 'mode': 'standard'}
+        )
+        
+        # Use regional endpoint URL explicitly
+        endpoint_url = f'https://s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com'
+        
         return boto3.client(
             's3',
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_S3_REGION_NAME,
+            endpoint_url=endpoint_url,
+            config=config
         )
     except Exception as e:
         # Don't log the actual error details (may contain credentials)

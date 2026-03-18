@@ -12,6 +12,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from functools import wraps
 import secrets
 import string
 import threading
@@ -20,9 +21,72 @@ from .models import Document, Note, UserProfile, HRProfile, EmailOTP, IPRateLimi
 from .forms import DocumentForm, NoteForm, UserRegistrationForm, UserProfileForm, HRLoginForm, HRRegistrationForm, HRProfileForm, PasswordResetForm, SetPasswordForm, ChangePasswordForm, OTPForm, EmailOTPForm
 from .utils import get_client_ip
 from .s3_utils import generate_presigned_post
+from .dynamodb_helpers import (
+    USE_DYNAMODB, sync_django_user_to_dynamodb, 
+    get_user_profile_ddb, create_user_profile_ddb,
+    get_hr_profile_ddb, create_hr_profile_ddb,
+    update_user_profile_ddb
+)
 
 User = get_user_model()
 logger = logging.getLogger('core')
+
+
+def requires_hr_access(view_func):
+    """Decorator to require HR profile and approval status for HR endpoints
+    
+    Security:
+    - Required login with HR profile
+    - HR account must be approved
+    - Logs failed access attempts
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            messages.error(request, 'Please log in to access this resource.')
+            return redirect('hr_login')
+        
+        # Check if user has HR profile
+        if not hasattr(request.user, 'hr_profile'):
+            messages.error(request, 'You do not have HR access. Please contact administrator.')
+            logger.warning(f"Unauthenticated HR access attempt by {request.user.username}")
+            return redirect('dashboard')
+        
+        # Check if HR account is approved
+        if not request.user.hr_profile.is_approved:
+            messages.warning(request, 'Your HR account is pending admin approval.')
+            logger.info(f"Pending HR approval access attempt by {request.user.username}")
+            return redirect('core:hr_pending_approval')
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+def requires_superuser(view_func):
+    """Decorator to require superuser access for admin functions
+    
+    Security:
+    - Required login as superuser
+    - Logs unauthorized access attempts with IP
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            messages.error(request, 'Admin authentication required.')
+            return redirect('admin:login')
+        
+        # Check if user is superuser
+        if not (request.user.is_staff and request.user.is_superuser):
+            logger.warning(f"Unauthorized admin access attempt by {request.user.username} from {get_client_ip(request)}")
+            messages.error(request, 'Only administrators can access this resource.')
+            return redirect('admin:index')
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
 
 
 class StudentLoginView(LoginView):
@@ -659,6 +723,17 @@ def hr_register_step3_create_account(request):
                 is_approved=False
             )
             
+            # Create DynamoDB profiles if enabled
+            if USE_DYNAMODB:
+                sync_django_user_to_dynamodb(user, user_type='hr')
+                create_hr_profile_ddb(
+                    user,
+                    company_name=request.POST.get('company_name', ''),
+                    designation=request.POST.get('designation', ''),
+                    department=request.POST.get('department', '')
+                )
+                logger.info(f"✅ DynamoDB HR profile created for {user.username}")
+            
             # Generate approval token
             approval_token = hr_profile.generate_approval_token()
             
@@ -1037,14 +1112,49 @@ def password_change_done(request):
 
 
 def generate_otp():
-    """Generate a cryptographically secure 6-digit OTP"""
+    """Generate a cryptographically secure 6-digit OTP
+    
+    For development/testing without Resend API: Returns '888888'
+    For production with Resend API: Returns random 6-digit OTP
+    """
+    import os
+    
+    # Check if RESEND_API_KEY is configured
+    resend_key = os.environ.get('RESEND_API_KEY', '')
+    is_valid_key = (
+        resend_key 
+        and not resend_key.startswith('[')
+        and 'ADD_YOUR' not in resend_key
+    )
+    
+    # Use development OTP if Resend not configured
+    if not is_valid_key and os.environ.get('DEBUG', 'False').lower() == 'true':
+        return '888888'
+    
+    # Production: Generate random OTP
     return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 
 def send_otp_email(email, otp):
-    """Send OTP via email in background thread"""
+    """Send OTP via email using Resend API"""
     def _send_email():
         try:
+            import os
+            resend_key = os.environ.get('RESEND_API_KEY', '')
+            is_valid_key = (
+                resend_key 
+                and not resend_key.startswith('[')
+                and 'ADD_YOUR' not in resend_key
+            )
+            
+            if not is_valid_key:
+                logger.warning(f"Resend API key not configured - OTP email not sent to {email}")
+                return
+            
+            # Use Resend API directly
+            import resend
+            resend.api_key = resend_key
+            
             subject = 'Email Verification OTP - RecruitHub'
             message = f'''
 Hello,
@@ -1058,20 +1168,36 @@ If you didn't request this OTP, please ignore this email.
 Best regards,
 RecruitHub Team
         '''
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=True,
-            )
+            
+            response = resend.Emails.send({
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": email,
+                "subject": subject,
+                "text": message,
+            })
+            
+            if response.get('id'):
+                logger.info(f"✅ OTP email sent successfully to {email} (ID: {response['id']})")
+            else:
+                error = response.get('message', 'Unknown error')
+                # Check if it's the test domain limitation
+                if 'testing emails' in error.lower() or 'own email address' in error.lower():
+                    logger.warning(f"⚠️ Resend test domain: Can only send to registered email. Email {email} won't receive OTP. Use OTP 888888 for testing.")
+                else:
+                    logger.error(f"❌ Failed to send OTP email to {email}: {error}")
+                
         except Exception as e:
-            # Log error but don't fail
-            logger.error(f"Failed to send OTP email to {email}: {str(e)}")
+            error_msg = str(e)
+            # Check if it's the test domain limitation
+            if 'testing emails' in error_msg.lower() or 'own email address' in error_msg.lower():
+                logger.warning(f"⚠️ Resend test domain: Can only send to registered email. Email {email} won't receive OTP. Use OTP 888888 for testing.")
+            else:
+                logger.error(f"❌ Exception sending OTP email to {email}: {type(e).__name__} - {error_msg}")
     
-    # Send email in background thread so request doesn't wait
+    # Send email in background thread
     thread = threading.Thread(target=_send_email, daemon=True)
     thread.start()
+    logger.info(f"📧 OTP email thread started for {email}")
 
 
 def register_step1_email(request):
@@ -1233,6 +1359,12 @@ def register_step3_create_account(request):
             user.set_password(form.cleaned_data['password'])
             user.save()
             
+            # Create DynamoDB profile if enabled
+            if USE_DYNAMODB:
+                create_user_profile_ddb(user)
+                sync_django_user_to_dynamodb(user, user_type='student')
+                logger.info(f"✅ DynamoDB profile created for {user.username}")
+            
             # CLEAN UP: Remove OTP and session data
             EmailOTP.objects.filter(email=email).delete()
             request.session.pop('registration_email', None)
@@ -1313,20 +1445,23 @@ def reject_hr_account(request, token):
         if request.method == 'POST':
             rejection_reason = request.POST.get('rejection_reason', 'No reason provided')
             
+            # Get user details BEFORE deletion (for email)
+            user = hr_profile.user
+            username = user.username
+            user_email = user.email
+            
             # Reject the account
             hr_profile.rejection_reason = rejection_reason
             hr_profile.save()
             
-            # Delete the user and HR profile
-            user = hr_profile.user
-            username = user.username
+            # Send rejection email BEFORE deleting user
+            send_rejection_email(user_email, rejection_reason)
+            
+            # Delete the user and HR profile (cascade delete will handle hr_profile)
             user.delete()
             
-            # Send rejection email
-            send_rejection_email(hr_profile.user.email, rejection_reason)
-            
             messages.success(request, f'HR account {username} has been rejected and deleted.')
-            logger.info(f"HR account {username} rejected. Reason: {rejection_reason}")
+            logger.info(f"HR account {username} rejected by {request.user.username}. Reason: {rejection_reason}")
             
             return redirect('admin:index')
         
@@ -1335,13 +1470,28 @@ def reject_hr_account(request, token):
     
     except HRProfile.DoesNotExist:
         messages.error(request, 'Invalid rejection token.')
-        logger.warning(f"Invalid HR rejection token: {token}")
+        logger.warning(f"Invalid HR rejection token: {token} from {request.user.username}")
         return redirect('admin:index')
 
 
 def send_approval_confirmation_email(user):
-    """Send approval confirmation email to HR user"""
+    """Send approval confirmation email to HR user using Resend API"""
     try:
+        import os
+        resend_key = os.environ.get('RESEND_API_KEY', '')
+        is_valid_key = (
+            resend_key 
+            and not resend_key.startswith('[')
+            and 'ADD_YOUR' not in resend_key
+        )
+        
+        if not is_valid_key:
+            logger.warning(f"Resend API key not configured - HR approval email not sent to {user.email}")
+            return
+        
+        import resend
+        resend.api_key = resend_key
+        
         subject = "Your HR Account Has Been Approved - RecruitHub"
         message = f"""
 Hello {user.first_name},
@@ -1359,21 +1509,41 @@ Best regards,
 RecruitHub Team
         """
         
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-        )
-        logger.info(f"HR approval confirmation email sent to {user.email}")
+        response = resend.Emails.send({
+            "from": settings.DEFAULT_FROM_EMAIL,
+            "to": user.email,
+            "subject": subject,
+            "text": message,
+        })
+        
+        if response.get('id'):
+            logger.info(f"✅ HR approval confirmation email sent to {user.email} (ID: {response['id']})")
+        else:
+            error = response.get('message', 'Unknown error')
+            logger.error(f"❌ Failed to send HR approval email: {error}")
+            
     except Exception as e:
-        logger.error(f"Failed to send approval confirmation email to {user.email}: {str(e)}")
+        logger.error(f"❌ Exception sending HR approval email to {user.email}: {type(e).__name__} - {str(e)}")
 
 
 def send_rejection_email(email, reason):
-    """Send rejection email to HR user"""
+    """Send rejection email to HR user using Resend API"""
     try:
+        import os
+        resend_key = os.environ.get('RESEND_API_KEY', '')
+        is_valid_key = (
+            resend_key 
+            and not resend_key.startswith('[')
+            and 'ADD_YOUR' not in resend_key
+        )
+        
+        if not is_valid_key:
+            logger.warning(f"Resend API key not configured - HR rejection email not sent to {email}")
+            return
+        
+        import resend
+        resend.api_key = resend_key
+        
         subject = "Your HR Account Registration - RecruitHub"
         message = f"""
 Hello,
@@ -1390,16 +1560,21 @@ Best regards,
 RecruitHub Team
         """
         
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [email],
-            fail_silently=False,
-        )
-        logger.info(f"HR rejection email sent to {email}")
+        response = resend.Emails.send({
+            "from": settings.DEFAULT_FROM_EMAIL,
+            "to": email,
+            "subject": subject,
+            "text": message,
+        })
+        
+        if response.get('id'):
+            logger.info(f"✅ HR rejection email sent to {email} (ID: {response['id']})")
+        else:
+            error = response.get('message', 'Unknown error')
+            logger.error(f"❌ Failed to send HR rejection email: {error}")
+            
     except Exception as e:
-        logger.error(f"Failed to send rejection email to {email}: {str(e)}")
+        logger.error(f"❌ Exception sending HR rejection email to {email}: {type(e).__name__} - {str(e)}")
 
 
 def send_username_recovery_email(email, username):

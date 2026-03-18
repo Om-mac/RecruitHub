@@ -1,0 +1,11 @@
+# Render Procfile for Django with DynamoDB
+# This replaces the old Procfile for PostgreSQL
+
+# Release phase - runs once before app starts
+release: python manage.py init_dynamodb && python manage.py collectstatic --noinput && python manage.py create_superuser_from_env
+
+# Web service
+web: gunicorn auth_project.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --worker-class sync --timeout 120 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -
+
+# Example for background worker (if needed later)
+# worker: python manage.py celery worker -l info

@@ -13,13 +13,15 @@ django-storages>=1.14.0
 gunicorn>=23.0.0
 whitenoise>=6.6.0
 
-# Database
-psycopg2-binary>=2.9.10
-dj-database-url>=2.1.0
+# DynamoDB ORM - Replaces PostgreSQL
+pynamodb>=5.5.1
+# boto3>=1.26.0  # (included with pynamodb)
 
 # Configuration
 python-decouple>=3.8
 python-dotenv>=1.0.0
+django-environ>=0.11.2
+dj-database-url>=2.0.0
 
 # Email
 resend>=0.10.0
