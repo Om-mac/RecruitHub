@@ -139,7 +139,7 @@ AWS_S3_REGION_NAME=us-east-1
 
 # ===== Keep existing config =====
 DEBUG=True
-RESEND_API_KEY=re_Pf3zovwi_QQA8g55EAQ4kg7AnPnb1HtpX
+RESEND_API_KEY="fucking key"
 DEFAULT_FROM_EMAIL=noreply@vakverse.com
 ```
 

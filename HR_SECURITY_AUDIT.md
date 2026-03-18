@@ -224,9 +224,9 @@ RATE_LIMIT_OTP_WINDOW=600  # 10 minutes
 
 From `.env`:
 ```
-RESEND_API_KEY=re_Pf3zovwi_QQA8g55EAQ4kg7AnPnb1HtpX
-DEFAULT_FROM_EMAIL=noreply@vakverse.com
-HR_APPROVAL_EMAIL=admin@recruithub.local
+RESEND_API_KEY="tarak mehta ka ooltah chashma"
+DEFAULT_FROM_EMAIL=noreply@fuck.com
+HR_APPROVAL_EMAIL=admin@fuck.local
 ```
 
 **Email Backend**:
