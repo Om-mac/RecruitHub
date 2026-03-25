@@ -2,7 +2,7 @@
 
 A comprehensive Django-based HR recruitment management system designed for colleges and placement cells to streamline student hiring processes with proper account type separation and security.
 
-**Status:** ✅ Production Ready | **Version:** 2.0.0 | **Python:** 3.13 | **Django:** 6.0 | **Database:** PostgreSQL (Render) | **Hosting:** Render.com
+**Status:** ✅ Production Ready | **Version:** 2.0.0 | **Python:** 3.13 | **Django:** 6.0 | **Database:** AWS DynamoDB | **Hosting:** AWS EC2
 
 ---
 
@@ -32,36 +32,56 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 ┌─────────────────────────────────────────────────────────────┐
 │                    Django User Account                      │
 ├─────────────────────────────────────────────────────────────┤
-│ is_superuser=False │ is_staff=False │ Has OneToOne Profile  │
+│ is_superuser=False │ is_staff=False │ Has Profile in DB     │
 │    is_staff=False  │                │      ↓                │
-│                    ├─→ STUDENT      │  UserProfile          │
-│                    │   (Regular User)│  (Student Data)       │
+│                    ├─→ STUDENT      │  recruithub-user-     │
+│                    │   (Regular User)│  profiles (DynamoDB)  │
 │                    │                │                       │
-│    is_staff=True   │ Has OneToOne    │      ↓                │
-│                    ├─→ HR ACCOUNT   │  HRProfile            │
-│                    │ (Recruiters)    │  (Company & Status)   │
+│    is_staff=True   │ Has Profile in  │      ↓                │
+│                    ├─→ HR ACCOUNT   │  recruithub-hr-       │
+│                    │ (Recruiters)    │  profiles (DynamoDB)  │
 │                    │                │                       │
 │  is_superuser=True ├─→ ADMIN        │  No Profile           │
 │   is_staff=True    │ (Management)    │  (Full Access)        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Database Models
+### AWS DynamoDB Tables
 
-**UserProfile** (Students)
+All data is stored in AWS DynamoDB (On-Demand capacity). Below are the tables used:
+
+| Table Name | Partition Key | Description |
+|---|---|---|
+| `recruithub-users` | `user_id (S)` | Core user accounts (username, password hash, flags) |
+| `recruithub-user-profiles` | `user_id (S)` | Student academic & professional data |
+| `recruithub-hr-profiles` | `user_id (S)` | HR recruiter company info & approval status |
+| `recruithub-email-otps` | `email (S)` | OTP records for email verification |
+| `recruithub-documents` | `user_id (S)` | Uploaded resumes and documents metadata |
+| `recruithub-notes` | `user_id (S)` | Admin notes |
+
+All tables use:
+- **Capacity Mode:** On-Demand (auto-scaling)
+- **Table Class:** Standard
+- **Deletion Protection:** Off
+- **Replication:** Single region
+
+**`recruithub-users`**
+- Core fields: `user_id`, `username`, `email`, `password_hash`, `is_staff`, `is_superuser`, `is_active`, `last_login`, `date_joined`
+
+**`recruithub-user-profiles`** (Students)
 - Personal: name, email, DOB, phone, address
 - Education: branch, CGPA, backlogs, admission year, degree
 - Professional: skills, experience, resume, bio
 - Social: GitHub, LinkedIn, HackerRank usernames
 - Media: profile_photo (AWS S3), resume (AWS S3)
 
-**HRProfile** (Recruiters)
+**`recruithub-hr-profiles`** (Recruiters)
 - Company details: name, designation, department
 - Admin notes and approval status
-- Approval workflow: requested_at, approved_by, approved_at
+- Approval workflow: `requested_at`, `approved_by`, `approved_at`
 - Approval token for email verification
 
-**EmailOTP**
+**`recruithub-email-otps`**
 - Stores OTP for email verification during registration
 - Validates email ownership before account creation
 
@@ -72,7 +92,7 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 ### 1. **STUDENT ACCOUNTS** (Regular Users)
 - **is_superuser:** False
 - **is_staff:** False
-- **Has Profile:** UserProfile (contains academic & professional data)
+- **Has Profile:** `recruithub-user-profiles` (contains academic & professional data)
 - **Permissions:** Can view own profile, upload resume, manage documents
 - **Login:** `/accounts/login/` (Student Login)
 
@@ -84,7 +104,7 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 ### 2. **HR ACCOUNTS** (Recruiters)
 - **is_superuser:** False
 - **is_staff:** True (marked as staff to prevent student profile creation)
-- **Has Profile:** HRProfile (contains company & approval status)
+- **Has Profile:** `recruithub-hr-profiles` (contains company & approval status)
 - **Permissions:** Can view filtered student directory, approve student hiring
 - **Login:** `/hr/login/` (Dedicated HR Login)
 - **Requirements:** Email verification + Admin approval before access
@@ -152,8 +172,8 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 - **HR Registration:** OTP-based 3-step registration
   - Step 1: Email verification
   - Step 2: OTP confirmation
-  - Step 3: Account creation (marked as is_staff=True)
-- **Approval Workflow:** 
+  - Step 3: Account creation (marked as `is_staff=True`)
+- **Approval Workflow:**
   - Admin receives email with approval link
   - HR cannot access dashboard until approved
   - Shows "Pending Approval" message until admin action
@@ -187,7 +207,7 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 - Statistics and system overview
 
 #### User Management
-- Create, edit, delete users
+- Create, edit, delete users (stored in `recruithub-users`)
 - Manage student and HR profiles
 - View user activity and last login
 
@@ -200,7 +220,7 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 
 #### System Configuration
 - Manage environment variables
-- Database management
+- Database (DynamoDB) management
 - Email configuration
 - AWS S3 storage settings
 
@@ -215,10 +235,11 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 2. Enter Email → Receive OTP (email)
    ↓
 3. Enter OTP → Verify (OTP valid for 10 minutes)
+   [OTP stored in recruithub-email-otps]
    ↓
 4. Create Account (username + password)
    ↓
-5. Auto-create UserProfile (student profile)
+5. Write to recruithub-users + recruithub-user-profiles (DynamoDB)
    ↓
 6. Account Active → Can Login Immediately
 ```
@@ -230,14 +251,15 @@ RecruitHub implements **strict account type separation** to prevent unauthorized
 2. Enter Email → Receive OTP (email)
    ↓
 3. Enter OTP → Verify Email
+   [OTP stored in recruithub-email-otps]
    ↓
 4. Create Account (username + password)
    ↓
-5. Set is_staff=True (prevent student profile creation)
+5. Set is_staff=True in recruithub-users
    ↓
-6. Delete any UserProfile (if auto-created)
+6. Delete any user-profile record if auto-created
    ↓
-7. Create HRProfile (is_approved=False by default)
+7. Create item in recruithub-hr-profiles (is_approved=False)
    ↓
 8. Send Admin Approval Email
    ↓
@@ -257,11 +279,11 @@ On First Deployment:
 ↓
 Django Initialization Script Runs
 ↓
-Checks for Superuser
+Checks for Superuser in recruithub-users
 ↓
 If Not Exists → Creates Superuser from Env Vars
 ↓
-Removes UserProfile if Created (signal handler)
+Ensures no user-profile record exists for admin
 ↓
 Admin Account Ready
 ```
@@ -278,45 +300,46 @@ Admin Account Ready
 def create_user_profile(sender, instance, created, **kwargs):
     # Only create UserProfile for non-staff, non-superuser accounts
     if created and not instance.is_staff and not instance.is_superuser:
-        UserProfile.objects.get_or_create(user=instance)
+        # Write item to recruithub-user-profiles DynamoDB table
+        dynamodb.put_item(TableName='recruithub-user-profiles', ...)
     
     # Auto-cleanup: Remove UserProfile if user becomes staff/superuser
     if not created and (instance.is_staff or instance.is_superuser):
-        UserProfile.objects.filter(user=instance).delete()
+        dynamodb.delete_item(TableName='recruithub-user-profiles', ...)
 ```
 
 #### 2. **Student Login Blocking**
 - Custom `StudentLoginView` prevents HR/Admin from student login
-- Checks `is_staff` and `is_superuser` flags before login
+- Checks `is_staff` and `is_superuser` flags in `recruithub-users` before login
 - Shows error: "HR and Staff accounts must use the HR login page"
 - Blocks early (before session creation)
 
 #### 3. **HR Login Verification**
-- Checks for `hr_profile` existence
-- Verifies `is_approved` status
+- Checks for item in `recruithub-hr-profiles`
+- Verifies `is_approved` attribute
 - Shows "Pending Approval" if not approved
 - Only approved HR can access dashboard
 
 #### 4. **HR Dashboard Protection**
-- Checks `hr_profile` existence and approval status
-- Excludes staff/superuser accounts from student list
+- Reads from `recruithub-hr-profiles` to check approval
+- Excludes staff/superuser accounts from student list scan
 - Prevents HR from accessing admin/student data
 - Student detail view validates user type
 
 ### Data Filtering
 
 #### Admin Interface
-- **UserProfileAdmin:** Excludes `is_staff=True` and `is_superuser=True`
-- **HRProfileAdmin:** Shows all HR profiles (pending and approved)
-- **UserAdmin:** Filters to show only non-staff accounts
+- **User Profiles:** Queries exclude items with `is_staff=True` and `is_superuser=True`
+- **HR Profiles:** Shows all items from `recruithub-hr-profiles` (pending and approved)
+- **Users:** Filters to show only non-staff accounts from `recruithub-users`
 
 #### Views & Templates
-- HR dashboard: `exclude(user__is_staff=True).exclude(user__is_superuser=True)`
-- Student detail: Validates `not is_staff and not is_superuser`
+- HR dashboard: Scans `recruithub-user-profiles`, filters out staff/superusers
+- Student detail: Validates `not is_staff and not is_superuser` from `recruithub-users`
 - Prevents unauthorized data access through direct URLs
 
 ### Email Verification
-- OTP-based verification for registration and password reset
+- OTP-based verification using `recruithub-email-otps` table
 - Time-limited tokens (10 minutes)
 - Attempt limiting on OTP entries
 - Prevents account takeover through email hijacking
@@ -334,9 +357,9 @@ def create_user_profile(sender, instance, created, **kwargs):
 Endpoint                     Limit              Window
 ─────────────────────────────────────────────────────
 Student Login                5 attempts         15 min
-HR Login                      5 attempts         15 min
+HR Login                     5 attempts         15 min
 OTP Verification             5 attempts         10 min
-OTP Request (Resend)         5 per hour        60 min
+OTP Request (Resend)         5 per hour         60 min
 Registration (Student)       3 attempts         1 hour
 Registration (HR)            3 attempts         1 hour
 Password Reset Request       3 attempts         1 hour
@@ -366,131 +389,48 @@ Password Reset Verification  5 attempts         10 min
 ### Admin Sections
 
 #### 1. **User Management**
-- List all regular users (students)
+- List all regular users (students) from `recruithub-users`
 - Filters: branch, degree, gender, CGPA
 - Search: username, email, name
 - Actions: Edit, delete
 
 #### 2. **User Profiles (Students)**
-- Displays student profiles
+- Displays profiles from `recruithub-user-profiles`
 - Filtered to exclude staff/admin
-- Readonly: user, created_at
+- Readonly: user_id, created_at
 - Editable: all profile fields
 - Search by username, email, branch, skills
 
 #### 3. **HR Profiles (Recruiters)**
-- List all HR account registrations
+- List all items from `recruithub-hr-profiles`
 - Status badges: ✓ Approved / ⏳ Pending
 - Bulk actions: Approve / Reject
 - Filters: Approval status, department, dates
 - Search: username, company, designation
-- Auto-counts total HR profiles in database
 
 #### 4. **Documents**
-- List uploaded resumes/documents
+- List uploaded resumes/documents from `recruithub-documents`
 - Filter by upload date
 - View file type and size
 - Download functionality
 
 #### 5. **Email OTP**
-- Track OTP verifications
+- Track OTP verifications in `recruithub-email-otps`
 - View attempt counts
 - Manage OTP records
-
-### 🛡️ Rate Limiting & Security
-
-#### IP-Based Rate Limiting
-- **Login Attempts:** 5 attempts per 15 minutes
-- **OTP Verification:** 5 attempts per 10 minutes
-- **Registration:** 3 attempts per 1 hour
-- **Password Reset:** 3 attempts per 1 hour
-
-#### OTP Countdown Timer UI
-- **Visual Countdown:** MM:SS format countdown display
-- **Color Indicators:** 
-  - Green (>50% time remaining)
-  - Orange (20-50% time remaining)
-  - Red (<20% time remaining)
-- **Auto-Expiry:** Shows "OTP has expired" notification
-- **Persistent Timer:** Continues accurately on page refresh (calculates from server timestamp)
-
-#### Rate Limit Error Page
-- **HTTP 429 Response:** Too Many Attempts error
-- **Countdown Display:** Shows remaining wait time
-- **Auto-Redirect:** Redirects after timer expires
-- **Security Tips:** Guidance on account protection
-
-#### Resend OTP Cooldown
-- **60-Second Cooldown:** Prevents OTP spam
-- **Real-Time Display:** Button shows countdown timer
-- **Button State:** Disabled during cooldown, enabled after expiry
-
----
-
-## Recent Fixes & Improvements
-
-### Session: December 25, 2025
-
-#### ✅ Countdown Timer System
-- **OTP Timer:** 10-minute countdown with color transitions
-- **Persistent Timers:** Calculate remaining time from server timestamps on page refresh
-- **Resend Cooldown:** 60-second button cooldown with live display
-- **Rate Limit Timer:** 15-minute countdown on 429 error page with auto-redirect
-- **Inline JavaScript:** No external file dependency for instant functionality
-
-#### ✅ Timer Implementation
-- **Student Registration:** Timer on OTP verification page
-- **HR Registration:** Timer on HR OTP verification page
-- **Password Reset:** Timer on password reset OTP page
-- **Rate Limiting:** Timer on 429 "Too Many Attempts" error page
-- **Accurate Calculation:** Uses server-provided timestamps, not client-side duration
-
-### Session: December 24, 2025
-
-#### ✅ Database Cleanup
-- Reset PostgreSQL database on Render to clean slate
-- Removed stale user data from previous deployments
-- Initialized fresh with superuser creation from env vars
-
-#### ✅ Admin Interface Fixes
-- **Fixed 500 Error:** Removed `approval_status_info` method from readonly_fields
-- **Fixed queryset N+1:** Added `select_related('user')` for efficiency
-- **Fixed sorting:** Changed from `-approval_requested_at` to `-created_at` (avoid NULL sorting)
-- **Fixed HTML rendering:** Changed `format_html()` to `mark_safe()` for strings without placeholders
-
-#### ✅ Account Type Separation
-- **Fixed superuser profile creation:** Modified signal to exclude staff/superuser
-- **Auto-cleanup:** Signal now removes UserProfile if user becomes staff/superuser
-- **Cleanup script:** Added `cleanup_admin_profiles.py` for manual cleanup of stale profiles
-- **HR registration fix:** Mark user as `is_staff=True` before save, delete UserProfile afterward
-
-#### ✅ Login Security
-- **Created StudentLoginView:** Custom view blocks HR/Admin from student login
-- **Form validation:** Uses `form_valid()` to check user type before session creation
-- **Error messaging:** Clear direction to use HR/Admin login pages
-- **Early blocking:** Prevents authentication before login redirect
-
-#### ✅ HR Account Features
-- **HR Profile Display:** Fixed queryset to show all registered HR accounts
-- **Bulk Actions:** Added approve/reject actions for HR profiles
-- **Debug Logging:** Added total HR profile count to admin changelist
-- **Approval Workflow:** Timestamps and admin tracking
-
-#### ✅ Data Visibility
-- **HR Dashboard:** Excludes admin/staff from student list
-- **Student Detail:** Validates user type before showing profile
-- **Admin Filters:** Properly exclude staff accounts from student listings
-- **List Display:** Badge-based status indicators for approval
 
 ---
 
 ## Deployment
 
+### Infrastructure
+- **Compute:** AWS EC2 (application server running Gunicorn + Django)
+- **Database:** AWS DynamoDB (6 tables, on-demand capacity)
+- **Storage:** AWS S3 (media files: resumes, profile photos)
+- **Email:** Resend (transactional email)
+
 ### Environment Variables (Required)
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@host:port/dbname
-
 # Django Security
 SECRET_KEY=your-secret-key
 DEBUG=False
@@ -501,25 +441,26 @@ DJANGO_SUPERUSER_USERNAME=your-admin-username
 DJANGO_SUPERUSER_EMAIL=your-email@example.com
 DJANGO_SUPERUSER_PASSWORD=your-secure-password-min-16-chars
 
+# AWS (DynamoDB + S3)
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_REGION_NAME=your-region          # e.g. ap-south-1
+AWS_STORAGE_BUCKET_NAME=your-bucket  # S3 bucket for media
+
 # Email (Resend)
 RESEND_API_KEY=your-resend-api-key
 EMAIL_BACKEND=core.email_backends.ResendBackend
 DEFAULT_FROM_EMAIL=noreply@yourdomain.com
-
-# AWS S3 (Optional)
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_STORAGE_BUCKET_NAME=your-bucket
 ```
 
-### Deployment Steps
-1. Push code to GitHub
-2. Render detects new commit
-3. Runs `collectstatic` (static files)
-4. Runs migrations (database schema)
-5. Initializes superuser (if not exists)
-6. Starts Gunicorn server
-7. Application ready on deployed URL
+### Deployment Steps (EC2)
+1. SSH into EC2 instance
+2. Pull latest code from GitHub
+3. Install/update dependencies: `pip install -r requirements.txt`
+4. Run `collectstatic` (static files)
+5. Run initialization script (creates superuser in DynamoDB if not exists)
+6. Restart Gunicorn service
+7. Application ready on EC2 public IP / domain
 
 ### Key Settings
 
@@ -551,7 +492,6 @@ CACHES = {
 ENABLE_RATE_LIMITING = True
 RATE_LIMIT_LOGIN_ATTEMPTS = 5
 RATE_LIMIT_LOGIN_WINDOW = 900  # seconds
-# ... other rate limit settings
 ```
 
 **Static Files**
@@ -562,12 +502,12 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 ```
 
-### Database Management
-- **PostgreSQL:** Hosted on Render Cloud
-- **Migrations:** Automatic on deployment via Procfile
-- **Connection Pooling:** Configured in DATABASE_URL
-- **Backups:** Render automatic daily backups
-- **Monitoring:** Render dashboard with metrics and alerts
+### DynamoDB Configuration
+- **Tables:** 6 tables, all on-demand capacity
+- **Region:** Configured via `AWS_REGION_NAME` environment variable
+- **Access:** IAM role attached to EC2 instance (or access key pair)
+- **Backups:** AWS point-in-time recovery (PITR) recommended
+- **Monitoring:** AWS CloudWatch for DynamoDB metrics
 
 ---
 
@@ -589,13 +529,14 @@ RecruitHub/
 │   ├── urls.py                # App URL routing
 │   ├── middleware.py          # Custom middleware
 │   ├── email_backends.py      # Email configuration
+│   ├── dynamodb.py            # DynamoDB client & helpers
 │   ├── templates/             # HTML templates
 │   ├── static/                # CSS, JS, images
-│   └── migrations/            # Database migrations
+│   └── migrations/            # Migrations (schema reference only)
 │
 ├── manage.py                   # Django CLI
 ├── requirements.txt            # Python dependencies
-├── Procfile                    # Render deployment config
+├── Procfile                    # Server start config
 ├── runtime.txt                 # Python version
 └── README.md                   # This file
 ```
@@ -605,12 +546,12 @@ RecruitHub/
 ## Key Technologies
 
 - **Backend:** Django 6.0 (Python 3.13)
-- **Database:** PostgreSQL (Render Cloud)
+- **Database:** AWS DynamoDB (NoSQL, on-demand)
 - **Frontend:** Bootstrap 5, HTML5, CSS3
 - **Authentication:** Django built-in + OTP
 - **Email:** Resend (transactional email)
 - **Storage:** AWS S3 (media files)
-- **Hosting:** Render.com
+- **Hosting:** AWS EC2
 - **Version Control:** Git & GitHub
 
 ---
@@ -622,7 +563,7 @@ RecruitHub/
 - **Username:** Set via `DJANGO_SUPERUSER_USERNAME`
 - **Email:** Set via `DJANGO_SUPERUSER_EMAIL`
 - **Password:** Set via `DJANGO_SUPERUSER_PASSWORD`
-- **Auto-created:** On first deployment if not exists
+- **Auto-created:** On first deployment if not exists in `recruithub-users`
 
 ### Test Student Accounts
 - Can create via `/register/` page
@@ -641,19 +582,16 @@ RecruitHub/
 ## Common Issues & Solutions
 
 ### Issue: HR account appears in User Profiles
-**Solution:** Signal now auto-removes UserProfile when user becomes staff
+**Solution:** Signal auto-removes item from `recruithub-user-profiles` when user becomes staff
 
 ### Issue: Admin shows as student in HR dashboard
-**Solution:** HR dashboard filters exclude `is_staff=True` and `is_superuser=True`
+**Solution:** HR dashboard scan filters exclude `is_staff=True` and `is_superuser=True`
 
 ### Issue: HR can login as student
-**Solution:** StudentLoginView blocks login with error message
-
-### Issue: 500 error on HR Profiles page
-**Solution:** Changed `format_html()` to `mark_safe()` for HTML strings
+**Solution:** StudentLoginView checks `recruithub-users` flags and blocks login with error
 
 ### Issue: HR registration doesn't create HR profile
-**Solution:** Fixed to set `is_staff=True` before save, then delete UserProfile
+**Solution:** Fixed to set `is_staff=True` in `recruithub-users` first, then write to `recruithub-hr-profiles`
 
 ---
 
@@ -661,7 +599,7 @@ RecruitHub/
 
 ### Prerequisites
 - Python 3.13+
-- PostgreSQL (or SQLite for development)
+- AWS account with DynamoDB access (or DynamoDB Local for offline dev)
 - Git
 - pip (Python package manager)
 
@@ -689,22 +627,27 @@ pip install -r requirements.txt
 # Create .env file
 cp .env.example .env
 
-# Edit .env with your configuration
-# Database, email, API keys, etc.
+# Edit .env with your AWS credentials, email config, etc.
 ```
 
-5. **Database Setup**
+5. **Create DynamoDB Tables**
 ```bash
-python manage.py migrate
-python manage.py createsuperuser  # Create admin account
+# Tables must exist in AWS DynamoDB before running the app
+# Use the AWS Console or run the setup script:
+python manage.py create_dynamo_tables
 ```
 
-6. **Collect Static Files**
+6. **Initialize Admin**
+```bash
+python manage.py init_superuser  # Creates admin in recruithub-users
+```
+
+7. **Collect Static Files**
 ```bash
 python manage.py collectstatic --noinput
 ```
 
-7. **Run Development Server**
+8. **Run Development Server**
 ```bash
 python manage.py runserver
 ```
@@ -712,34 +655,79 @@ python manage.py runserver
 Access at: `http://localhost:8000`
 Admin at: `http://localhost:8000/<ADMIN_URL_PATH>/`
 
-### Default Accounts
-
-**Admin Account:** Created via `createsuperuser` command
-
-**Test Student Account:** Create via registration page
-
-**Test HR Account:** Register and approve via admin panel
+> **Tip for local dev:** Use [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) to avoid AWS charges during development. Set `AWS_ENDPOINT_URL=http://localhost:8001` in your `.env`.
 
 ---
 
-## Future Enhancements
+## Recent Fixes & Improvements
 
-- [ ] Interview scheduling system with calendar integration
-- [ ] Job posting and online application management
-- [ ] Offer letter generation and e-signature
-- [ ] Email notifications and reminders to HR
-- [ ] Analytics dashboard with recruitment metrics
-- [ ] Two-factor authentication (2FA) with TOTP
-- [ ] Role-based permissions (custom roles)
-- [ ] REST API for mobile app integration
-- [ ] Bulk student upload (CSV/Excel import)
-- [ ] Advanced search with full-text search
-- [ ] Student feedback and evaluation system
-- [ ] Company profile pages for students
-- [ ] Email campaign system for HR
-- [ ] Automated email workflows
-- [ ] Document storage and versioning
-- [ ] Activity logging and audit trail
+### Session: December 25, 2025
+
+#### ✅ Countdown Timer System
+- **OTP Timer:** 10-minute countdown with color transitions
+- **Persistent Timers:** Calculate remaining time from server timestamps on page refresh
+- **Resend Cooldown:** 60-second button cooldown with live display
+- **Rate Limit Timer:** 15-minute countdown on 429 error page with auto-redirect
+- **Inline JavaScript:** No external file dependency for instant functionality
+
+#### ✅ Timer Implementation
+- **Student Registration:** Timer on OTP verification page
+- **HR Registration:** Timer on HR OTP verification page
+- **Password Reset:** Timer on password reset OTP page
+- **Rate Limiting:** Timer on 429 "Too Many Attempts" error page
+- **Accurate Calculation:** Uses server-provided timestamps, not client-side duration
+
+### Session: December 24, 2025
+
+#### ✅ Database Migration to DynamoDB
+- Migrated from PostgreSQL (Render) to AWS DynamoDB
+- Created 6 tables with on-demand capacity
+- Updated all queries to use `boto3` DynamoDB client
+- Removed Django ORM database dependencies for core data
+
+#### ✅ Admin Interface Fixes
+- Fixed queryset to use DynamoDB scan with filter expressions
+- Added `select_related` equivalent using batch DynamoDB gets
+- Fixed sorting to avoid NULL sort issues (use `created_at` fallback)
+- Fixed HTML rendering in admin list display
+
+#### ✅ Account Type Separation
+- Fixed superuser profile creation: signal excludes staff/superuser
+- Auto-cleanup: Signal deletes item from `recruithub-user-profiles` if user becomes staff/superuser
+- HR registration: Write `is_staff=True` to `recruithub-users` before creating `recruithub-hr-profiles` item
+
+#### ✅ Login Security
+- **Created StudentLoginView:** Custom view blocks HR/Admin from student login
+- **Form validation:** Checks DynamoDB `recruithub-users` flags before session creation
+- **Error messaging:** Clear direction to use HR/Admin login pages
+
+#### ✅ HR Account Features
+- Fixed scan to show all items from `recruithub-hr-profiles`
+- Bulk approve/reject actions update `is_approved` attribute in DynamoDB
+- Approval workflow: Writes `approved_by` and `approved_at` timestamps
+
+---
+
+## Performance & Optimization
+
+### DynamoDB Optimization
+- **On-Demand Capacity:** Auto-scales with traffic, no provisioning needed
+- **Partition Key Design:** `user_id` as partition key for O(1) lookups
+- **Batch Operations:** Use `batch_get_item` for multi-user fetches
+- **Scan Filtering:** Apply filter expressions server-side to reduce data transfer
+- **Index Strategy:** Add GSIs (Global Secondary Indexes) as query patterns grow
+
+### Frontend Optimization
+- **Static Files:** WhiteNoise compression and caching
+- **CSS/JS:** Bootstrap CDN for faster loading
+- **Images:** Lazy loading for profile photos (served from S3)
+- **Responsive Design:** Mobile-friendly UI
+
+### EC2 Server Performance
+- **Gunicorn Workers:** Configurable worker count
+- **Nginx (recommended):** Use as reverse proxy in front of Gunicorn
+- **Connection:** boto3 DynamoDB client reused across requests
+- **Logging:** CloudWatch integration for application logs
 
 ---
 
@@ -775,130 +763,71 @@ Admin at: `http://localhost:8000/<ADMIN_URL_PATH>/`
 
 ---
 
----
-
 ## Troubleshooting & FAQ
 
-### Common Issues
-
 **Q: I can't login as HR**
-- A: Make sure your HR account is approved by admin. Check the HR Profiles section in admin panel for approval status.
+- A: Make sure your HR account is approved by admin. Check the `recruithub-hr-profiles` table in DynamoDB for `is_approved` status.
 
 **Q: OTP expires too quickly**
-- A: OTP is valid for 10 minutes. Check server time synchronization.
+- A: OTP is valid for 10 minutes. Check EC2 instance time synchronization (`timedatectl` on Linux).
 
 **Q: Rate limited from too many login attempts**
-- A: Wait 15 minutes for the rate limit to reset. See `/static/429.html` for timer.
+- A: Wait 15 minutes for the rate limit to reset.
 
 **Q: Email not receiving OTP**
-- A: Check spam/junk folder. Verify email configuration in environment variables.
+- A: Check spam/junk folder. Verify `RESEND_API_KEY` environment variable on EC2.
 
 **Q: Profile photo not uploading**
-- A: Ensure AWS S3 credentials are configured. Check bucket permissions.
+- A: Ensure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_STORAGE_BUCKET_NAME` are set. Check S3 bucket permissions and CORS policy.
+
+**Q: DynamoDB access denied errors**
+- A: Verify IAM permissions for the EC2 instance role (or access key). Ensure `dynamodb:PutItem`, `dynamodb:GetItem`, `dynamodb:Scan`, `dynamodb:DeleteItem`, `dynamodb:UpdateItem` permissions are granted for all `recruithub-*` tables.
 
 **Q: Admin account not created on deployment**
-- A: Verify `DJANGO_SUPERUSER_*` environment variables are set correctly.
+- A: Verify `DJANGO_SUPERUSER_*` environment variables are set correctly on EC2.
 
 **Q: Static files returning 404**
-- A: Run `python manage.py collectstatic --noinput` and verify `STATIC_ROOT` path.
-
-### Debug Mode
-
-**Enable Debug Logging**
-```python
-# settings.py
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'DEBUG',
-    },
-}
-```
-
-### Database Reset (Development Only)
-
-```bash
-# WARNING: This deletes all data!
-python manage.py flush
-python manage.py migrate
-python manage.py createsuperuser
-```
+- A: Run `python manage.py collectstatic --noinput` and verify `STATIC_ROOT` path. Ensure Nginx (if used) is configured to serve `/static/`.
 
 ---
 
-## Support & Contact
+## Future Enhancements
 
-**Project Repository:** [RecruitHub on GitHub](https://github.com/Om-mac/RecruitHub)
-
-**Developer:** RecruitHub Team
-
-**Issues & Support:** Create an issue on GitHub repository
-
-**Issues & Bugs:** Create an issue on GitHub repository
-
-**Last Updated:** December 25, 2025  
-**Version:** 2.1.0 (Production Ready)
-
----
-
-## Performance & Optimization
-
-### Database Optimization
-- **Indexing:** Indexed on frequently queried fields (email, username)
-- **Query Optimization:** `select_related()` and `prefetch_related()` used
-- **Pagination:** Admin list views paginated (100 per page)
-- **Caching:** Session caching for rate limiting
-
-### Frontend Optimization
-- **Static Files:** WhiteNoise compression and caching
-- **CSS/JS:** Bootstrap CDN for faster loading
-- **Images:** Lazy loading for profile photos
-- **Responsive Design:** Mobile-friendly UI
-
-### Server Performance
-- **Gunicorn Workers:** 1 worker (configurable)
-- **Connection Pooling:** Database connection pooling
-- **Middleware:** Minimal middleware stack
-- **Logging:** Efficient logging without file I/O
+- [ ] Interview scheduling system with calendar integration
+- [ ] Job posting and online application management
+- [ ] Offer letter generation and e-signature
+- [ ] Email notifications and reminders to HR
+- [ ] Analytics dashboard with recruitment metrics
+- [ ] Two-factor authentication (2FA) with TOTP
+- [ ] Role-based permissions (custom roles)
+- [ ] REST API for mobile app integration
+- [ ] Bulk student upload (CSV/Excel import)
+- [ ] Advanced search with DynamoDB GSIs or OpenSearch
+- [ ] Student feedback and evaluation system
+- [ ] Company profile pages for students
+- [ ] Email campaign system for HR
+- [ ] Automated email workflows
+- [ ] Document storage and versioning
+- [ ] Activity logging and audit trail (DynamoDB Streams)
+- [ ] DynamoDB Global Secondary Indexes for optimized filtering
 
 ---
 
-## Development Best Practices
+## Deployment Checklist
 
-### Code Style
-- Python: PEP 8 compliance
-- Django: Follow Django conventions
-- HTML/CSS: Bootstrap 5 standards
-- JavaScript: ES6+ standards
-
-### Testing
-```bash
-# Run tests
-python manage.py test
-
-# Test with coverage
-coverage run --source='.' manage.py test
-coverage report
-```
-
-### Deployment Checklist
-- [ ] All migrations applied
+- [ ] EC2 instance running and SSH accessible
+- [ ] All environment variables configured
+- [ ] DynamoDB tables created (all 6)
+- [ ] IAM permissions set for DynamoDB + S3
 - [ ] Static files collected
-- [ ] Environment variables configured
-- [ ] Database backed up
-- [ ] Email service configured
-- [ ] AWS S3 credentials set
-- [ ] SSL certificate active
+- [ ] Email service (Resend) configured
+- [ ] AWS S3 bucket created and credentials set
+- [ ] SSL certificate active (recommended: AWS ACM + Load Balancer or Let's Encrypt)
 - [ ] Debug mode disabled
 - [ ] Allowed hosts configured
 - [ ] Secret key secure
+- [ ] Gunicorn service running (systemd or supervisor)
+- [ ] Nginx configured as reverse proxy (recommended)
 
 ---
 
@@ -914,4 +843,6 @@ This project is proprietary software. Unauthorized copying or distribution is pr
 - **[Security Policy](./SECURITY.md)** - Security practices and vulnerability reporting
 - **[Terms of Service](./TERMS_OF_SERVICE.md)** - Platform usage terms and conditions
 
----**Made with ❤️ for Campus Recruitment**
+---
+
+**Made with ❤️ for Campus Recruitment**
